@@ -21,7 +21,10 @@
         <span class="addr-url" id="addrUrl">https://www.example.com/login</span>
         <span class="addr-badge" id="addrBadge">保護された通信</span>
       </div>
-      <button type="button" class="btn btn-ghost glossary-btn" id="glossaryBtn" aria-label="用語集を開く">📖 用語集</button>
+      <div class="header-btns">
+        <button type="button" class="btn btn-ghost glossary-btn" id="faqBtn" aria-label="よくある質問を開く">❓ よくある質問</button>
+        <button type="button" class="btn btn-ghost glossary-btn" id="glossaryBtn" aria-label="用語集を開く">📖 用語集</button>
+      </div>
     </header>
 
     <nav class="stagebar" id="stagebar" aria-label="ステージ"></nav>
@@ -115,7 +118,17 @@
     </div>
   </dialog>
 
+  <dialog class="term-dialog faq-dialog" id="faqDialog" aria-labelledby="faqTitle">
+    <div class="term-dialog-inner">
+      <button type="button" class="btn btn-icon dialog-close" id="faqClose" aria-label="閉じる">✕</button>
+      <h2 class="term-title" id="faqTitle">❓ よくある質問</h2>
+      <p class="term-reading">作者が学習中につまずいたポイントをまとめました。</p>
+      <div id="faqBody"></div>
+    </div>
+  </dialog>
+
   <script src="js/glossary.js"></script>
+  <script src="js/faq.js"></script>
   <script src="js/steps.js"></script>
   <script src="js/app.js"></script>
 </body>

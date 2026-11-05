@@ -205,5 +205,40 @@ window.GLOSSARY = {
     meaning: "他人の通信をこっそり読み取ること。同じ公衆 Wi-Fi や途中のネットワーク機器でパケットを覗かれると、暗号化されていない内容（HTTP のパスワードや Cookie など）はそのまま読まれてしまう。HTTPS でも、行き先（DNS・SNI・IP）や通信量は分かってしまう点に注意。",
     origin: "英語では eavesdropping（軒下＝eaves で立ち聞きする）や sniffing（においをかぎ回る）。パケットを覗く道具を「スニッファー」と呼ぶ。",
     memo: "覚え方：HTTP はハガキ、HTTPS は封筒。どちらも「宛名」は読まれる。"
+  },
+  "ARP": {
+    name: "ARP",
+    reading: "アープ",
+    meaning: "同じ LAN の中で、IP アドレスから相手の MAC アドレス（機器ごとの番号）を調べる仕組み。PC は外へ出るパケットをまずルーターに渡すので、DNS クエリより前に「192.168.1.1 の MAC アドレスは？」と ARP で聞くことがある（キャッシュがあれば省略）。",
+    origin: "Address Resolution Protocol（アドレス解決プロトコル）の略。RFC 826（1982 年）。",
+    memo: "覚え方：IP は「住所」、MAC は「表札」。ARP は「この住所の表札は誰？」と近所に聞いて回る。"
+  },
+  "ALPN": {
+    name: "ALPN",
+    reading: "エーエルピーエヌ",
+    meaning: "TLS の ClientHello / ServerHello の中で、その上で使う通信方式（h2＝HTTP/2、http/1.1 など）を決める仕組み。今の Edge や Chrome は h2 を提示し、多くのサイトは HTTP/2 で通信する。",
+    origin: "Application-Layer Protocol Negotiation（アプリケーション層プロトコルの交渉）の略。RFC 7301。",
+    memo: "覚え方：握手（TLS）しながら「何語で話す？」を決める。"
+  },
+  "PRGパターン": {
+    name: "PRG パターン",
+    reading: "ピーアールジー",
+    meaning: "フォームを POST したあと、リダイレクト（303 や 302）で GET のページへ移す設計。再読み込みしても POST がもう一度送られないので、二重送信・二重購入を防げる。",
+    origin: "POST → Redirect → GET の頭文字。",
+    memo: "覚え方：303 See Other ＝「他（のページ）を GET で見て」。"
+  },
+  "DoH/DoT": {
+    name: "DoH / DoT",
+    reading: "ドゥー / ドット",
+    meaning: "DNS の問い合わせを暗号化する仕組み。通常の DNS（UDP/53）は平文なので、どのサイトを調べたか盗聴者に見えるが、DoH・DoT を使うと中身が読めなくなる。",
+    origin: "DNS over HTTPS（RFC 8484）／ DNS over TLS（RFC 7858）の略。",
+    memo: "覚え方：DNS に HTTPS / TLS の「封筒」をかぶせる。"
+  },
+  "ECH": {
+    name: "ECH",
+    reading: "イーシーエイチ",
+    meaning: "TLS の ClientHello（SNI を含む）を暗号化する仕組み。これを使うと、HTTPS でも接続先のサイト名が SNI から読まれなくなる。対応しているサイト・ブラウザはまだ一部。",
+    origin: "Encrypted Client Hello（暗号化されたクライアントのあいさつ）の略。",
+    memo: "覚え方：最後に残った「封筒の宛名（SNI）」まで隠す技術。"
   }
 };

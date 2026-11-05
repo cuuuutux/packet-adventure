@@ -855,6 +855,11 @@
     });
     card.appendChild(list);
 
+    if (window.FAQ && FAQ.length) {
+      card.appendChild(el("h3", null, "❓ よくある質問"));
+      card.appendChild(buildFaqList());
+    }
+
     var actions = el("div", { "class": "summary-actions" });
     var again = el("button", { type: "button", "class": "btn btn-primary" }, "⏮ もう一度最初から");
     again.addEventListener("click", function () { goTo(0, { user: true }); });
@@ -941,6 +946,66 @@
     render({ onDone: state.playing ? scheduleNext : null });
   }
 
+  /* ---------- よくある質問 ---------- */
+  function findStepIndex(id) {
+    for (var i = 0; i < state.seq.length; i++) {
+      var sid = state.seq[i].id;
+      if (sid === id || sid === id + "-" + state.proto) return i;
+    }
+    return -1;
+  }
+  function jumpTo(j) {
+    if (!j) return;
+    closeFaq();
+    if (j.proto) setProto(j.proto);
+    if (j.loss && !state.loss) { state.loss = true; rebuildSeq(); }
+    if (j.sniff && !state.sniff) { state.sniff = true; applySniffVisibility(); }
+    renderToggles();
+    var i = findStepIndex(j.id);
+    goTo(i >= 0 ? i : 0, { user: true });
+  }
+  function buildFaqList() {
+    var list = el("div", { "class": "faq-list" });
+    (window.FAQ || []).forEach(function (f, n) {
+      var d = el("details", { "class": "faq-item" });
+      d.appendChild(el("summary", null, "Q" + (n + 1) + ". " + f.q));
+      var body = el("div", { "class": "faq-body" });
+      body.appendChild(el("p", { html: f.a }));
+      var row = el("div", { "class": "faq-row" });
+      (f.terms || []).forEach(function (k) {
+        if (!GLOSSARY[k]) return;
+        var c = el("button", { type: "button", "class": "term-chip" }, GLOSSARY[k].name || k);
+        c.addEventListener("click", function () { closeFaq(); openTerm(k); });
+        row.appendChild(c);
+      });
+      if (f.jump) {
+        var b = el("button", { type: "button", "class": "btn btn-small faq-jump" }, "▶ このステップを見る");
+        b.addEventListener("click", function () { jumpTo(f.jump); });
+        row.appendChild(b);
+      }
+      body.appendChild(row);
+      d.appendChild(body);
+      list.appendChild(d);
+    });
+    return list;
+  }
+  function openFaq() {
+    var dlg = $("faqDialog");
+    var body = $("faqBody");
+    body.textContent = "";
+    body.appendChild(buildFaqList());
+    if (!dlg.open) {
+      lastFocus = document.activeElement;
+      if (state.playing) stopPlay();
+      if (typeof dlg.showModal === "function") dlg.showModal(); else dlg.setAttribute("open", "");
+      $("faqClose").focus();
+    }
+  }
+  function closeFaq() {
+    var dlg = $("faqDialog");
+    if (dlg && dlg.open) { if (typeof dlg.close === "function") dlg.close(); else dlg.removeAttribute("open"); }
+  }
+
   /* ---------- 用語集ダイアログ ---------- */
   var lastFocus = null;
   var pointerFocused = null;
@@ -1012,6 +1077,11 @@
     $("tglLoss").addEventListener("click", function () { state.loss = !state.loss; rebuildSeq(); afterToggle(); });
 
     $("glossaryBtn").addEventListener("click", function () { openTerm(null); });
+    $("faqBtn").addEventListener("click", openFaq);
+    $("faqClose").addEventListener("click", closeFaq);
+    var fdlg = $("faqDialog");
+    fdlg.addEventListener("click", function (e) { if (e.target === fdlg) closeFaq(); });
+    fdlg.addEventListener("close", function () { if (lastFocus && lastFocus.focus && !$("termDialog").open) lastFocus.focus(); });
     $("termClose").addEventListener("click", closeTerm);
     var dlg = $("termDialog");
     dlg.addEventListener("click", function (e) { if (e.target === dlg) closeTerm(); });
@@ -1025,7 +1095,7 @@
     });
     document.addEventListener("keydown", function (e) {
       if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return;
-      if ($("termDialog").open) return;
+      if ($("termDialog").open || $("faqDialog").open) return;
       var t = e.target;
       var tag = t && t.tagName ? t.tagName.toLowerCase() : "";
       if (tag === "input" || tag === "select" || tag === "textarea" || (t && t.isContentEditable)) return;

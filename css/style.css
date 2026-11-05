@@ -843,3 +843,15 @@ input[type="range"]::-moz-range-thumb {
   }
   .link.is-active + .link-flow { animation: none; opacity: 0; }
 }
+
+/* ---------- よくある質問 ---------- */
+.header-btns { display: flex; gap: 6px; flex: none; }
+.faq-dialog { width: min(680px, calc(100vw - 32px)); }
+.faq-list { display: flex; flex-direction: column; gap: 6px; }
+.faq-item { border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); }
+.faq-item > summary { cursor: pointer; padding: 9px 12px; font-weight: 700; line-height: 1.45; }
+.faq-item[open] > summary { border-bottom: 1px solid var(--line); }
+.faq-body { padding: 8px 12px 10px; }
+.faq-body p { margin: 0 0 8px; line-height: 1.7; }
+.faq-row { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+.faq-jump { margin-left: auto; }
