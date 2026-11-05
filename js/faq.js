@@ -40,7 +40,7 @@ window.FAQ = [
   },
   {
     q: "SYN が消えたあと、再送までの待ち時間は本当に「約 1 秒」？",
-    a: "<b>RFC 6298 では初期値が 1 秒</b>で、それでも届かなければ待ち時間を <b>2 倍ずつ</b>（1 → 2 → 4 → 8 秒…）延ばして再送します（指数バックオフ）。混雑しているネットワークをさらに混ませないためです。ただし実際の値は OS の設定によって違います。Windows では PowerShell の <code>Get-NetTCPSetting</code> で <code>InitialRto</code>（ミリ秒）を確認できます。※これは TCP の話で、DNS キャッシュとは関係ありません。",
+    a: "<b>RFC 6298 では初期値が 1 秒</b>で、それでも届かなければ待ち時間を <b>2 倍ずつ</b>（1 → 2 → 4 → 8 秒…）延ばして再送します（指数バックオフ）。混雑しているネットワークをさらに混ませないためです。ただし実際の値は OS の設定によって違います。Windows では PowerShell の <code>Get-NetTCPSetting</code> で確認できます。作者の Windows 11 では <code>InitialRto</code> = <b>1000</b> ミリ秒（RFC と同じ）、<code>MaxSynRetransmissions</code> = <b>4</b> 回でした。つまり 1 → 2 → 4 → 8 秒の間隔で最大 4 回再送し、それでも返事がなければ接続失敗になります。※これは TCP の話で、DNS キャッシュとは関係ありません。",
     terms: ["再送(RTO)", "SYN"],
     jump: { id: "tcp-syn-lost", loss: true }
   }
