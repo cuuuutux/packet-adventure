@@ -6,7 +6,7 @@
   <meta name="description" content="ブラウザに URL を入力してからログインするまで、ネットワークで何が起きているかを 1 ステップずつ学べるシミュレーター">
   <meta name="color-scheme" content="light dark">
   <title>パケットの大冒険</title>
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/style.css?v=202611050558">
   <script>
     // 保存したテーマを最初の描画前に反映（ちらつき防止）。保存できない環境でも動くよう try/catch
     try { var t = localStorage.getItem("pa-theme"); if (t === "dark" || t === "light") document.documentElement.setAttribute("data-theme", t); } catch (e) {}
@@ -143,9 +143,9 @@
       if (t) t.textContent = "⚠ 表示に失敗しました。Ctrl + F5 で再読み込みしてください。";
     }, 4000);
   </script>
-  <script src="js/glossary.js"></script>
-  <script src="js/faq.js"></script>
-  <script src="js/steps.js"></script>
-  <script src="js/app.js"></script>
+  <script src="js/glossary.js?v=202611050558"></script>
+  <script src="js/faq.js?v=202611050558"></script>
+  <script src="js/steps.js?v=202611050558"></script>
+  <script src="js/app.js?v=202611050558"></script>
 </body>
 </html>
