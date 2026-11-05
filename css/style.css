@@ -933,3 +933,12 @@ input.addr-url { border: 0; background: transparent; color: var(--ink); padding:
 
 /* テーマ切替ボタン */
 .theme-btn { min-width: 40px; }
+
+/* 🍪 ログイン済み（ページ表示のシナリオでだけ使える） */
+#tglCookie.is-on .toggle-track { background: var(--c-http); }
+.toggle.is-disabled { opacity: .5; cursor: not-allowed; }
+.toggle.is-disabled .toggle-track { background: var(--line-strong); }
+@media (max-width: 640px) {
+  /* トグルが 4 つになったので 2 列 × 2 段に */
+  .toggles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

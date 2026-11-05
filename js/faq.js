@@ -1,5 +1,7 @@
 /* よくある質問（作者が学習中につまずいた点をまとめたもの）
  * jump: 「このステップを見る」ボタンの移動先。id は steps.js の id（末尾 -http / -https は自動補完）
+ *   任意で proto / loss / sniff（true でオン）、path（パスだけ変える。例 "/login"）、
+ *   url（URL ごと切り替える。例 "https://www.example.com/docs"）、cookie（true/false：🍪 ログイン済み）
  */
 window.FAQ = [
   {
@@ -30,7 +32,13 @@ window.FAQ = [
     q: "ログイン後のリダイレクトは、なぜ 302？ 303 ではないの？",
     a: "意味の上では <b>303 See Other</b>（必ず GET で見に行く）が正確です。HTTP/1.0 の 302 は本来「同じメソッドのまま移動」という意味でしたが、多くのブラウザが POST を GET に変えてしまったため、HTTP/1.1 で 303（必ず GET）と 307（メソッドを変えない）が追加されました。今でも 302 はブラウザが GET に変えるので、実際の動きは同じです。この「POST → リダイレクト → GET」は <b>PRG パターン</b>と呼ばれ、再読み込みによる二重送信を防ぎます。",
     terms: ["ステータスコード", "PRGパターン", "POSTメソッド", "GETメソッド"],
-    jump: { id: "http-302" }
+    jump: { id: "http-302", path: "/login" }
+  },
+  {
+    q: "ログイン済みのサイトを開くと、毎回ログインしているの？",
+    a: "<b>していません</b>。最初にログインしたとき、サーバーは <code>Set-Cookie</code> で<b>セッション ID</b> をブラウザに預けます。それ以降、ブラウザは同じサイトへのリクエストにこの <b>Cookie</b> を<b>自動で</b>付けて送るので、サーバーは「ログイン済みの taro さんだ」と分かり、ID とパスワードを送り直す（<code>POST /login</code>）必要はありません（このシミュレーターでは、/login 以外の URL を開いて「🍪 ログイン済み」を ON にすると確かめられます）。そのかわり Cookie は合言葉そのものなので、盗まれるとパスワードなしでなりすまされます（<b>セッションハイジャック</b>）。<b>HTTPS</b> なら Cookie もリクエストごと暗号化され、盗聴者には読めません。さらに Cookie の <code>Secure</code> 属性（HTTPS のときだけ送る）で HTTP の通信に漏れるのを防ぎ、<code>HttpOnly</code> 属性（JavaScript から読めない）で XSS による盗み出しを防ぎます。",
+    terms: ["Cookie", "セッション", "セッションハイジャック", "HTTPS"],
+    jump: { id: "http-view-get-cookie", url: "https://www.example.com/docs", cookie: true, sniff: true }
   },
   {
     q: "実際のブラウザも HTTP/1.1 で通信しているの？",

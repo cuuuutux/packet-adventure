@@ -1,8 +1,11 @@
 /* =========================================================
  * パケットの大冒険 — ステップデータ（エージェント B 担当）
  *
- * シナリオ：ブラウザで www.example.com/login を開き、
- *           ID とパスワードでログインし、最後に接続を閉じる。
+ * シナリオ（scenario）は 2 つ。app.js が URL のパスで自動的に選ぶ。
+ *   "login"：www.example.com/login を開き、ID とパスワードでログインし、最後に接続を閉じる。
+ *   "view" ：それ以外のパス（データ上は仮に /docs）を開いて表示し、接続を閉じる。
+ *            cookie: true は「ログイン済み」（以前預かった Cookie を自動で送る）、false は未ログイン。
+ *   scenario / cookie が未指定のステップ（DNS・TCP・TLS）は全シナリオ共通。
  *
  * - IP アドレスは文書用の予約アドレス（RFC 5737）。
  * - 値は PC 側から見たもの（NAT 変換前のプライベート IP）。
@@ -17,7 +20,13 @@
  *               →(302 312)→ 10345 →(200 1842)→ 12187 →FIN
  *   HTTP : PC  1001 →(GET 402)→ 1403 →(POST 548)→ 1951 →(GET 455)→ 2406 →FIN
  *          SV  5001 →(200 2310)→ 7311 →(302 290)→ 7601 →(200 1820)→ 9421 →FIN
- *   （HTTPS の各 HTTP メッセージ = HTTP 版の長さ + TLS レコードのオーバーヘッド 22 バイト）
+ *   （HTTPS の各 HTTP メッセージ = HTTP 版の長さ + TLS レコードのオーバーヘッド 22 バイト。
+ *     TLS のレコード長 = TCP データ長 - レコードヘッダ 5 バイト）
+ *   view（/docs）:
+ *   HTTPS 未ログイン  : PC 1576 →(GET 423)→ 1999 →FIN   SV 7701 →(200 3356)→ 11057 →FIN
+ *   HTTPS ログイン済み: PC 1576 →(GET 457)→ 2033 →FIN   SV 7701 →(200 3608)→ 11309 →FIN
+ *   HTTP  未ログイン  : PC 1001 →(GET 401)→ 1402 →FIN   SV 5001 →(200 3334)→ 8335 →FIN
+ *   HTTP  ログイン済み: PC 1001 →(GET 435)→ 1436 →FIN   SV 5001 →(200 3586)→ 8587 →FIN
  * ========================================================= */
 (function () {
   "use strict";
@@ -92,7 +101,7 @@
     { id: "dns",   label: "① DNS 名前解決",          color: "var(--c-dns)" },
     { id: "tcp",   label: "② TCP 接続",              color: "var(--c-tcp)" },
     { id: "tls",   label: "③ TLS 暗号化の準備",      color: "var(--c-tls)" },
-    { id: "http",  label: "④ HTTP ページ表示とログイン", color: "var(--c-http)" },
+    { id: "http",  label: "④ HTTP ページ表示とログイン", labels: { view: "④ HTTP ページ表示" }, color: "var(--c-http)" },
     { id: "close", label: "⑤ 切断",                  color: "var(--c-close)" }
   ];
 
@@ -341,7 +350,7 @@
     title: "GET /login：ログインページをください",
     from: "pc", to: "server",
     label: "GET",
-    encrypted: true, dropped: false, only: "https", lossOnly: false,
+    encrypted: true, dropped: false, only: "https", lossOnly: false, scenario: "login",
     desc: "いよいよ <b>HTTP</b> の出番です。ブラウザは「/login のページをください」という <b>GET</b> リクエストを送ります。" +
       "<b>HTTPS</b> なので、このリクエストは TLS の Application Data として暗号化されてから送られ、途中の人には中身が読めません。" +
       "ただし、宛先の IP アドレス・ポート番号・データの大きさなど「封筒の外側」は見えます。",
@@ -360,7 +369,7 @@
     title: "GET /login：ログインページをください",
     from: "pc", to: "server",
     label: "GET",
-    encrypted: false, dropped: false, only: "http", lossOnly: false,
+    encrypted: false, dropped: false, only: "http", lossOnly: false, scenario: "login",
     desc: "いよいよ <b>HTTP</b> の出番です。ブラウザは「/login のページをください」という <b>GET</b> リクエストを、80 番ポートで送ります。" +
       "HTTP（https ではない）なので暗号化はされず、文字がそのまま流れています。" +
       "同じ Wi-Fi にいる人は、あなたがどのサイトのどのページを見ているかを、はがきを読むように読めてしまいます。",
@@ -385,7 +394,7 @@
     title: "200 OK：ログインページの HTML",
     from: "server", to: "pc",
     label: "200 OK",
-    encrypted: true, dropped: false, only: "https", lossOnly: false,
+    encrypted: true, dropped: false, only: "https", lossOnly: false, scenario: "login",
     desc: "サーバーは <b>ステータスコード</b> <code>200 OK</code>（成功）とともに、ログインフォームの HTML を返します。" +
       "これも暗号化されているので、盗聴者にはページの中身は分かりません。" +
       "ブラウザは受け取ったデータを復号して HTML を読み、ID とパスワードの入力欄を画面に表示します。",
@@ -404,7 +413,7 @@
     title: "200 OK：ログインページの HTML",
     from: "server", to: "pc",
     label: "200 OK",
-    encrypted: false, dropped: false, only: "http", lossOnly: false,
+    encrypted: false, dropped: false, only: "http", lossOnly: false, scenario: "login",
     desc: "サーバーは <b>ステータスコード</b> <code>200 OK</code>（成功）とともに、ログインフォームの HTML を返します。" +
       "ブラウザはこの HTML を読んで、ID とパスワードの入力欄を表示します。" +
       "HTTP なので、ページの中身も平文のまま流れています。途中で書き換えられても気づけない（改ざんの危険）点も問題です。",
@@ -429,7 +438,7 @@
     title: "POST /login：ID とパスワードを送信",
     from: "pc", to: "server",
     label: "POST",
-    encrypted: true, dropped: false, only: "https", lossOnly: false,
+    encrypted: true, dropped: false, only: "https", lossOnly: false, scenario: "login",
     desc: "ID（taro）とパスワードを入力して「ログイン」を押すと、ブラウザはフォームの内容を <b>POST</b> リクエストの本文（ボディ）に入れて送ります。" +
       "HTTPS なので、パスワードは暗号化されていて盗聴者には読めません。これが HTTPS を使う一番大きな理由です。" +
       "ただし、どのサーバーと、いつ、どのくらいの量をやりとりしたかは外から分かります。",
@@ -448,7 +457,7 @@
     title: "POST /login：ID とパスワードを送信",
     from: "pc", to: "server",
     label: "POST",
-    encrypted: false, dropped: false, only: "http", lossOnly: false,
+    encrypted: false, dropped: false, only: "http", lossOnly: false, scenario: "login",
     desc: "ID（taro）とパスワードを入力して「ログイン」を押すと、ブラウザはフォームの内容を <b>POST</b> リクエストの本文（ボディ）に入れて送ります。" +
       "POST は URL にデータが出ないので一見安全そうですが、HTTP では本文も<b>暗号化されていません</b>。" +
       "同じ Wi-Fi の盗聴者には、パスワードがそのまま読めてしまいます（<code>%21</code> は「!」を URL エンコードしたもの）。",
@@ -474,7 +483,7 @@
     title: "302 Found：ログイン成功、合言葉をどうぞ",
     from: "server", to: "pc",
     label: "302",
-    encrypted: true, dropped: false, only: "https", lossOnly: false,
+    encrypted: true, dropped: false, only: "https", lossOnly: false, scenario: "login",
     desc: "ログイン成功。サーバーは <code>302 Found</code>（別の場所へ移動してね）と <code>Location: /mypage</code> で、マイページへ案内します。" +
       "HTTP は 1 回ごとのやりとりが独立していて前回を覚えていないので、<code>Set-Cookie</code> で「ログイン済み」を表す合言葉（セッション ID）をブラウザに預けます。" +
       "<code>Secure</code>（HTTPS のときだけ送る）や <code>HttpOnly</code>（JavaScript から読めない）を付けて、<b>Cookie</b> が盗まれにくくしています。",
@@ -493,7 +502,7 @@
     title: "302 Found：ログイン成功、合言葉をどうぞ",
     from: "server", to: "pc",
     label: "302",
-    encrypted: false, dropped: false, only: "http", lossOnly: false,
+    encrypted: false, dropped: false, only: "http", lossOnly: false, scenario: "login",
     desc: "ログイン成功。サーバーは <code>302 Found</code>（別の場所へ移動してね）と <code>Location: /mypage</code> で、マイページへ案内します。" +
       "HTTP は前回のやりとりを覚えていないので、<code>Set-Cookie</code> で「ログイン済み」を表す合言葉（セッション ID）をブラウザに預けます。" +
       "しかし HTTP ではこの <b>Cookie</b> も丸見えで、盗んだ人があなたになりすましてログインできてしまいます（セッションハイジャック）。" +
@@ -518,7 +527,7 @@
     title: "GET /mypage：Cookie を見せて入室",
     from: "pc", to: "server",
     label: "GET",
-    encrypted: true, dropped: false, only: "https", lossOnly: false,
+    encrypted: true, dropped: false, only: "https", lossOnly: false, scenario: "login",
     desc: "ブラウザは 302 の指示に従って、自動で <code>/mypage</code> を <b>GET</b> します。" +
       "このとき、さっき預かった <b>Cookie</b>（<code>session=…</code>）を一緒に送るので、サーバーは「さっきログインした taro さんだ」と分かります。" +
       "同じ TCP・TLS の接続を使い回すので、ハンドシェイクのやり直しは不要です。",
@@ -537,7 +546,7 @@
     title: "GET /mypage：Cookie を見せて入室",
     from: "pc", to: "server",
     label: "GET",
-    encrypted: false, dropped: false, only: "http", lossOnly: false,
+    encrypted: false, dropped: false, only: "http", lossOnly: false, scenario: "login",
     desc: "ブラウザは 302 の指示に従って、自動で <code>/mypage</code> を <b>GET</b> します。" +
       "このとき、さっき預かった <b>Cookie</b>（<code>session=…</code>）を一緒に送るので、サーバーは「さっきログインした taro さんだ」と分かります。" +
       "ただし HTTP なので、ページを開くたびにこの Cookie が平文で流れ続けます。",
@@ -561,7 +570,7 @@
     title: "200 OK：ようこそ taro さん",
     from: "server", to: "pc",
     label: "200 OK",
-    encrypted: true, dropped: false, only: "https", lossOnly: false,
+    encrypted: true, dropped: false, only: "https", lossOnly: false, scenario: "login",
     desc: "Cookie で本人と確認できたので、サーバーは <code>200 OK</code> でマイページの HTML を返します。画面に「ようこそ taro さん」と表示され、ログイン完了です。" +
       "ここまでの HTTP のやりとりはすべて暗号化されていたので、盗聴者はパスワードも Cookie もページの中身も読めませんでした。",
     headers: [
@@ -579,7 +588,7 @@
     title: "200 OK：ようこそ taro さん",
     from: "server", to: "pc",
     label: "200 OK",
-    encrypted: false, dropped: false, only: "http", lossOnly: false,
+    encrypted: false, dropped: false, only: "http", lossOnly: false, scenario: "login",
     desc: "Cookie で本人と確認できたので、サーバーは <code>200 OK</code> でマイページの HTML を返します。画面に「ようこそ taro さん」と表示され、ログイン完了です。" +
       "でも HTTP なので、マイページに表示される個人情報も、盗聴者にはすべて見えています。",
     headers: [
@@ -596,24 +605,192 @@
   });
 
   /* =====================================================
+   * ④' HTTP ページ表示（/login 以外の URL を開いたとき。scenario: "view"）
+   *   GET /docs → 200 OK だけ。POST・302 はない。
+   *   cookie: true  … 以前のログインで預かった Cookie を自動で付けて GET（ログイン済み）
+   *   cookie: false … Cookie なしの GET（未ログイン）
+   *   "/docs" は仮のパス。app.js が入力された URL のパスに置き換える。
+   * ===================================================== */
+  var VIEW_PATH = "/docs";
+  var COOKIE = "session=8f3a9c2e71b4d605";
+  // HTTP 版のバイト数（HTTPS 版はそれぞれ +22）
+  //   GET：/login 版（402）よりパスが 1 文字短く 401。Cookie ヘッダ（"Cookie: " + 24 文字 + 改行 = 34）で 435。
+  //   200：ヘッダ 262 + 本文（Content-Length）。ログイン済みは Cache-Control: private（24）も付く。
+  var VIEW_LEN = {
+    guest:  { get: 401, res: 262 + 3072,      cl: 3072 },
+    cookie: { get: 435, res: 262 + 24 + 3300, cl: 3300 }
+  };
+  var VIEW_END = { https: {}, http: {} };   // 切断ステップ用：HTTP が終わった時点の番号
+
+  function hex4(n) { var h = n.toString(16); while (h.length < 4) h = "0" + h; return "0x" + h; }
+  // 暗号文の先頭（TLS レコードヘッダ 5 バイト＋α）
+  function recHead(recLen, tail) {
+    var h = hex4(recLen);
+    return "17 03 03 " + h.slice(2, 4) + " " + h.slice(4, 6) + " " + tail + " … (読めない)";
+  }
+
+  ["https", "http"].forEach(function (mode) {
+    [false, true].forEach(function (ck) {
+      var https = mode === "https";
+      var kind = ck ? "cookie" : "guest";
+      var L = VIEW_LEN[kind];
+      var ov = https ? 22 : 0;
+      var getLen = L.get + ov, resLen = L.res + ov;
+      var c0 = https ? 1576 : 1001, s0 = https ? 7701 : 5001;
+      var c1 = c0 + getLen, s1 = s0 + resLen;
+      VIEW_END[mode][kind] = { c: c1, s: s1 };
+      var p = port(mode);
+      var getReq = "GET " + VIEW_PATH + " HTTP/1.1";
+      var body = ck
+        ? "<header>こんにちは、taro さん</header> …（" + VIEW_PATH + " のページ本文。taro さん向けの表示）"
+        : "<!DOCTYPE html><html lang=\"ja\"> …（" + VIEW_PATH + " のページ本文）";
+
+      // --- GET <path> ---
+      S.push({
+        id: "http-view-get-" + kind + "-" + mode,
+        stage: "http",
+        title: ck ? "GET " + VIEW_PATH + "：Cookie を自動で添えて" : "GET " + VIEW_PATH + "：ページをください",
+        from: "pc", to: "server",
+        label: ck ? "GET🍪" : "GET",
+        encrypted: https, dropped: false, only: mode, lossOnly: false, scenario: "view", cookie: ck,
+        desc: "いよいよ <b>HTTP</b> の出番です。ブラウザは「" + VIEW_PATH + " のページをください」という <b>GET</b> リクエストを" + (https ? "" : " 80 番ポートで") + "送ります。" +
+          (ck
+            ? "このサイトには以前ログインしたことがあり、そのとき <code>Set-Cookie</code> で預かった<b>セッション</b> ID の <b>Cookie</b>（<code>session=…</code>）を、ブラウザが<b>自動で</b>リクエストに付けます。" +
+              "サーバーは Cookie を見て「ログイン済みの taro さんだ」と分かるので、ページを開くたびに ID とパスワードを送り直す（<code>POST /login</code> する）必要はありません。" +
+              (https
+                ? "<b>HTTPS</b> なので Cookie もリクエストごと暗号化され、盗聴者には読めません（宛先の IP・ポート・データの大きさなど「封筒の外側」は見えます）。"
+                : "ただし HTTP なので Cookie も<b>平文</b>です。盗聴者がこの値をコピーして自分のブラウザで使えば、パスワードを知らなくてもあなたになりすませます（<b>セッションハイジャック</b>）。HTTP のサイトでは Cookie に <code>Secure</code> 属性も付けられません。")
+            : "このサイトにはまだログインしていない（Cookie を預かっていない）ので、リクエストに Cookie は付きません。" +
+              (https
+                ? "<b>HTTPS</b> なので、どのページを頼んだかは暗号化されて途中の人には読めません。ただし、宛先の IP アドレス・ポート番号・データの大きさなど「封筒の外側」は見えます。"
+                : "HTTP（https ではない）なので暗号化はされず、同じ Wi-Fi にいる人には、どのサイトのどのページを見ているかがはがきのように読めてしまいます。")),
+        headers: https
+          ? [
+            ipUp(SV_IP, "TCP"),
+            tcp(mode, "up", "PSH, ACK", c0, s0, getLen + " バイト"),
+            tlsAppData(hex4(getLen - 5), getLen - 5),
+            httpHidden(getReq + " / Host: www.example.com / User-Agent: " + UA + " / Accept: text/html" + (ck ? " / Cookie: " + COOKIE : ""))
+          ]
+          : [
+            ipUp(SV_IP, "TCP"),
+            tcp(mode, "up", "PSH, ACK", c0, s0, getLen + " バイト"),
+            { layer: "HTTP", fields: [
+              ["リクエスト行", getReq],
+              ["Host", "www.example.com"],
+              ["User-Agent", UA],
+              ["Accept", "text/html"]
+            ].concat(ck ? [["Cookie", COOKIE]] : []) }
+          ],
+        sniff: https
+          ? "192.168.1.10:50432 → 203.0.113.80:443（" + getLen + " バイト）\n" + recHead(getLen - 5, ck ? "6e 2b 90 d1 4c" : "8f 2c e1 07 5d") +
+            (ck
+              ? "\n→ Cookie（セッション ID）は読めないので、なりすましには使えない\n→ ただし行き先（www.example.com）・IP・ポート・サイズは分かる"
+              : "\n→ 何かを要求したことは分かるが、どのページかは分からない")
+          : getReq + "\nHost: www.example.com\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) …" +
+            (ck
+              ? "\nCookie: " + COOKIE + "\n→ セッション ID が丸見え！ これを盗めばパスワードなしでなりすませる（セッションハイジャック）"
+              : "\n→ どのページを見ているか丸見え"),
+        terms: ck
+          ? (https ? ["GETメソッド", "Cookie", "セッション", "HTTPS"] : ["GETメソッド", "Cookie", "セッション", "セッションハイジャック", "盗聴"])
+          : (https ? ["HTTP", "HTTPS", "GETメソッド", "共通鍵暗号"] : ["HTTP", "GETメソッド", "盗聴"])
+      });
+
+      // --- 200 OK（そのページの HTML） ---
+      var resFields = [
+        ["ステータス行", "HTTP/1.1 200 OK"],
+        ["Content-Type", "text/html; charset=UTF-8"],
+        ["Content-Length", String(L.cl)]
+      ].concat(ck ? [["Cache-Control", "private"]] : []).concat([["本文", body]]);
+      S.push({
+        id: "http-view-200-" + kind + "-" + mode,
+        stage: "http",
+        title: ck ? "200 OK：taro さん向けのページ" : "200 OK：" + VIEW_PATH + " のページ",
+        from: "server", to: "pc",
+        label: "200 OK",
+        encrypted: https, dropped: false, only: mode, lossOnly: false, scenario: "view", cookie: ck,
+        desc: (ck
+            ? "サーバーは Cookie のセッション ID から「ログイン済みの taro さん」だと分かったので、<b>ステータスコード</b> <code>200 OK</code> で、taro さん向けの表示を含んだページ（<b>ログイン済みのページ</b>）を返します。" +
+              "個人向けの内容なので <code>Cache-Control: private</code>（途中の共有キャッシュに保存しないで）も付けています。"
+            : "サーバーは <b>ステータスコード</b> <code>200 OK</code>（成功）とともに、" + VIEW_PATH + " の HTML を返します。Cookie が付いていなかったので、だれが見ても同じ<b>未ログインの人向け</b>の表示です。") +
+          "ブラウザは HTML を読んで画面に表示します（実際はこのあと画像や CSS などを追加で GET することが多いですが、ここでは省略）。" +
+          (https
+            ? "暗号化されているので、盗聴者には中身も、Cookie が付いていたかどうかも分かりません。"
+            : "HTTP なので、ページの中身も平文のまま流れています。途中で書き換えられても気づけない（改ざんの危険）点も問題です。"),
+        headers: https
+          ? [
+            ipDown(SV_IP, "TCP"),
+            tcp(mode, "down", "PSH, ACK", s0, c1, resLen + " バイト（実際は 3 セグメント）"),
+            tlsAppData(hex4(resLen - 5), resLen - 5),
+            httpHidden(resFields.map(function (f) { return f[0] === "ステータス行" ? f[1] : f[0] === "本文" ? f[1] : f[0] + ": " + f[1]; }).join(" / "))
+          ]
+          : [
+            ipDown(SV_IP, "TCP"),
+            tcp(mode, "down", "PSH, ACK", s0, c1, resLen + " バイト（実際は 3 セグメント）"),
+            { layer: "HTTP", fields: resFields }
+          ],
+        sniff: https
+          ? "203.0.113.80:443 → 192.168.1.10:50432（" + resLen + " バイト）\n" + recHead(resLen - 5, ck ? "0b 9e 64 d1 a8" : "c3 6a 0d f2 48") +
+            "\n→ 約 " + (resLen / 1000).toFixed(1) + " KB のデータを受け取ったことだけ分かる"
+          : "HTTP/1.1 200 OK\nContent-Type: text/html" + (ck ? "\nCache-Control: private" : "") + "\n" + body +
+            (ck ? "\n→ 誰（taro さん）がどのページを見ているか、中身まで丸見え" : "\n→ ページの中身まで丸見え"),
+        terms: ck
+          ? (https ? ["ステータスコード", "セッション", "HTTPS"] : ["ステータスコード", "セッション", "盗聴"])
+          : (https ? ["ステータスコード", "HTTPS", "共通鍵暗号"] : ["ステータスコード", "HTTP", "盗聴"])
+      });
+    });
+  });
+
+  /* =====================================================
    * ⑤ 切断（FIN / ACK の 4 ウェイ）
+   *   HTTP の段階で送ったバイト数がシナリオごとに違うので、番号もシナリオ別。
+   *   login: id は close-fin-https など（従来どおり）
+   *   view : id は close-fin-view-guest-https / close-fin-view-cookie-https など
    * ===================================================== */
   var CLOSE = {
     https: { c: 3047, s: 12187 },
     http:  { c: 2406, s: 9421 }
   };
-  ["https", "http"].forEach(function (mode) {
-    var c = CLOSE[mode].c, s = CLOSE[mode].s, p = port(mode);
-    S.push({
-      id: "close-fin-" + mode,
+  // scenario: "login" | "view"、kind: view のときだけ "guest" | "cookie"
+  function pushClose(mode, scenario, kind, c, s) {
+    var p = port(mode);
+    var https = mode === "https";
+    var view = scenario === "view";
+    var ck = kind === "cookie";
+    var suffix = (view ? "-view-" + kind : "") + "-" + mode;
+    var common = { encrypted: false, dropped: false, only: mode, lossOnly: false, scenario: scenario };
+    if (view) common.cookie = ck;
+    function mk(o) { for (var k in common) o[k] = common[k]; return o; }
+    var recap, matome, lastTerms = ["ACK", "盗聴"];
+    if (!view) {
+      recap = https
+        ? "振り返ると、盗聴者に見えたのは DNS の問い合わせ・SNI・IP アドレス・ポート・通信量で、パスワードや Cookie は見えませんでした。"
+        : "振り返ると、盗聴者にはページの中身・パスワード・Cookie まで、すべて見えていました。";
+      matome = https
+        ? "【まとめ】見えた：行き先（DNS・SNI）、IP、ポート、時刻、通信量／見えない：URL のパス、パスワード、Cookie、ページ内容"
+        : "【まとめ】見えた：URL、ページ内容、ID・パスワード、Cookie … ほぼすべて";
+    } else if (https) {
+      recap = "振り返ると、盗聴者に見えたのは DNS の問い合わせ・SNI・IP アドレス・ポート・通信量で、どのページか・ページの中身" +
+        (ck ? "・Cookie（セッション ID）は見えませんでした。Cookie を盗まれないので、なりすましもされません。" : "は見えませんでした。");
+      matome = "【まとめ】見えた：行き先（DNS・SNI）、IP、ポート、時刻、通信量／見えない：URL のパス、" + (ck ? "Cookie（セッション ID）、" : "") + "ページ内容";
+    } else {
+      recap = ck
+        ? "振り返ると、盗聴者にはどのページを見たか・ページの中身に加えて、Cookie（セッション ID）まで見えていました。これを盗まれると、パスワードなしでなりすまされます（セッションハイジャック）。"
+        : "振り返ると、盗聴者にはどのページを見たか（URL のパス）も、ページの中身も、すべて見えていました。";
+      matome = ck
+        ? "【まとめ】見えた：URL、ページ内容、Cookie（セッション ID）… 盗まれるとなりすまされる"
+        : "【まとめ】見えた：URL（パスまで）、ページ内容 … ほぼすべて";
+      if (ck) lastTerms = ["ACK", "盗聴", "セッションハイジャック"];
+    }
+
+    S.push(mk({
+      id: "close-fin" + suffix,
       stage: "close",
       title: "FIN：もう送るものはありません",
       from: "pc", to: "server",
       label: "FIN",
-      encrypted: false, dropped: false, only: mode, lossOnly: false,
       desc: "用事が済んだので、PC は「こちらから送るデータはもうない」という <b>FIN</b> を送ります。" +
         "TCP の切断は、両方向それぞれを閉じるために FIN と ACK を 2 往復させる（4 ウェイ）のが基本です。" +
-        (mode === "https" ? "HTTPS の場合は、その前に TLS の <code>close_notify</code>（暗号化通信を終える合図）を送るのが正式な作法です（このシミュレーションでは省略）。" :
+        (https ? "HTTPS の場合は、その前に TLS の <code>close_notify</code>（暗号化通信を終える合図）を送るのが正式な作法です（このシミュレーションでは省略）。" :
           "実際のブラウザは、同じサイトをすぐまた開くときに備えて、しばらく接続を開いたままにしておくこともあります。"),
       headers: [
         ipUp(SV_IP, "TCP"),
@@ -621,14 +798,13 @@
       ],
       sniff: "192.168.1.10:50432 → 203.0.113.80:" + p + " [FIN, ACK] seq=" + c + " ack=" + s + "\n→ 通信が終わることが分かる（フラグは暗号化されない）",
       terms: ["FIN", "ACK", "TCP"]
-    });
-    S.push({
-      id: "close-ack-" + mode,
+    }));
+    S.push(mk({
+      id: "close-ack" + suffix,
       stage: "close",
       title: "ACK：了解です",
       from: "server", to: "pc",
       label: "ACK",
-      encrypted: false, dropped: false, only: mode, lossOnly: false,
       desc: "サーバーは FIN を受け取ったことを <b>ACK</b>（確認応答番号 <code>" + (c + 1) + "</code>）で知らせます。FIN はデータがなくても番号を 1 つ消費するので、相手の seq + 1 になります。" +
         "この時点で「PC → サーバー」方向は閉じましたが、サーバー側にまだ送り残しがあれば送れます。",
       headers: [
@@ -637,14 +813,13 @@
       ],
       sniff: "203.0.113.80:" + p + " → 192.168.1.10:50432 [ACK] seq=" + s + " ack=" + (c + 1),
       terms: ["ACK", "シーケンス番号"]
-    });
-    S.push({
-      id: "close-server-fin-" + mode,
+    }));
+    S.push(mk({
+      id: "close-server-fin" + suffix,
       stage: "close",
       title: "FIN：こちらも終わります",
       from: "server", to: "pc",
       label: "FIN",
-      encrypted: false, dropped: false, only: mode, lossOnly: false,
       desc: "サーバーも送るものがなくなったので、自分の側の <b>FIN</b> を送ります。" +
         "片方ずつ閉じるのは、TCP が「行き」と「帰り」の 2 本の通り道でできているからです。",
       headers: [
@@ -653,28 +828,28 @@
       ],
       sniff: "203.0.113.80:" + p + " → 192.168.1.10:50432 [FIN, ACK] seq=" + s + " ack=" + (c + 1),
       terms: ["FIN", "TCP"]
-    });
-    S.push({
-      id: "close-last-ack-" + mode,
+    }));
+    S.push(mk({
+      id: "close-last-ack" + suffix,
       stage: "close",
       title: "ACK：おつかれさまでした",
       from: "pc", to: "server",
       label: "ACK",
-      encrypted: false, dropped: false, only: mode, lossOnly: false,
       desc: "PC が最後の <b>ACK</b>（確認応答番号 <code>" + (s + 1) + "</code>）を返して、接続は完全に閉じられました。" +
         "PC はこのあと少しの間（TIME_WAIT）この組み合わせを使わずに待ち、遅れて届いたパケットが次の接続に混ざらないようにします。" +
-        (mode === "https"
-          ? "振り返ると、盗聴者に見えたのは DNS の問い合わせ・SNI・IP アドレス・ポート・通信量で、パスワードや Cookie は見えませんでした。"
-          : "振り返ると、盗聴者にはページの中身・パスワード・Cookie まで、すべて見えていました。"),
+        recap,
       headers: [
         ipUp(SV_IP, "TCP"),
         tcp(mode, "up", "ACK", c + 1, s + 1, "0")
       ],
-      sniff: "192.168.1.10:50432 → 203.0.113.80:" + p + " [ACK] seq=" + (c + 1) + " ack=" + (s + 1) +
-        (mode === "https"
-          ? "\n【まとめ】見えた：行き先（DNS・SNI）、IP、ポート、時刻、通信量／見えない：URL のパス、パスワード、Cookie、ページ内容"
-          : "\n【まとめ】見えた：URL、ページ内容、ID・パスワード、Cookie … ほぼすべて"),
-      terms: ["ACK", "盗聴"]
+      sniff: "192.168.1.10:50432 → 203.0.113.80:" + p + " [ACK] seq=" + (c + 1) + " ack=" + (s + 1) + "\n" + matome,
+      terms: lastTerms
+    }));
+  }
+  ["https", "http"].forEach(function (mode) {
+    pushClose(mode, "login", null, CLOSE[mode].c, CLOSE[mode].s);
+    ["guest", "cookie"].forEach(function (kind) {
+      pushClose(mode, "view", kind, VIEW_END[mode][kind].c, VIEW_END[mode][kind].s);
     });
   });
 

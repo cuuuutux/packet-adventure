@@ -6,7 +6,7 @@
   <meta name="description" content="ブラウザに URL を入力してからログインするまで、ネットワークで何が起きているかを 1 ステップずつ学べるシミュレーター">
   <meta name="color-scheme" content="light dark">
   <title>パケットの大冒険</title>
-  <link rel="stylesheet" href="css/style.css?v=202611050558">
+  <link rel="stylesheet" href="css/style.css?v=202611050604">
   <script>
     // 保存したテーマを最初の描画前に反映（ちらつき防止）。保存できない環境でも動くよう try/catch
     try { var t = localStorage.getItem("pa-theme"); if (t === "dark" || t === "light") document.documentElement.setAttribute("data-theme", t); } catch (e) {}
@@ -18,7 +18,7 @@
     <header class="site-header">
       <div class="brand">
         <h1>パケットの大冒険</h1>
-        <p class="subtitle">URL を入力してからログインするまで</p>
+        <p class="subtitle" id="subtitle">URL を入力してからログインするまで</p>
       </div>
       <div class="addressbar" id="addressbar" role="group" aria-label="アドレスバー">
         <span class="addr-icon" id="addrIcon" aria-hidden="true">🔒</span>
@@ -58,6 +58,7 @@
         <button type="button" class="toggle is-on" id="tglProto" aria-pressed="true" aria-label="HTTPS を使う（オフで HTTP）"><span class="toggle-track" aria-hidden="true"><span class="toggle-thumb"></span></span><span id="protoText">🔒 HTTPS</span></button>
         <button type="button" class="toggle" id="tglSniff" aria-pressed="false" aria-label="盗聴者モード"><span class="toggle-track" aria-hidden="true"><span class="toggle-thumb"></span></span>👀 盗聴者</button>
         <button type="button" class="toggle" id="tglLoss" aria-pressed="false" aria-label="パケットロスを起こす"><span class="toggle-track" aria-hidden="true"><span class="toggle-thumb"></span></span>💥 ロス</button>
+        <button type="button" class="toggle is-disabled" id="tglCookie" aria-pressed="false" aria-disabled="true" aria-label="🍪 ログイン済み（/login 以外の URL を開いたときに使えます）" title="/login 以外の URL を開いたときに使えます"><span class="toggle-track" aria-hidden="true"><span class="toggle-thumb"></span></span>🍪 ログイン済み</button>
       </div>
     </section>
 
@@ -143,9 +144,9 @@
       if (t) t.textContent = "⚠ 表示に失敗しました。Ctrl + F5 で再読み込みしてください。";
     }, 4000);
   </script>
-  <script src="js/glossary.js?v=202611050558"></script>
-  <script src="js/faq.js?v=202611050558"></script>
-  <script src="js/steps.js?v=202611050558"></script>
-  <script src="js/app.js?v=202611050558"></script>
+  <script src="js/glossary.js?v=202611050604"></script>
+  <script src="js/faq.js?v=202611050604"></script>
+  <script src="js/steps.js?v=202611050604"></script>
+  <script src="js/app.js?v=202611050604"></script>
 </body>
 </html>

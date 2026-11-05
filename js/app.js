@@ -82,10 +82,14 @@
   var ORIG_STEPS = JSON.parse(JSON.stringify(ALL_STEPS));
 
   /* ---------- 入力した URL の反映 ----------
-   * データは www.example.com / 203.0.113.80 / GET /login で書かれているので、
+   * データは www.example.com / 203.0.113.80 で書かれているので、
    * 文字列を置き換えて「入力した URL の場合」を作る。
+   * パスが /login ならログインのシナリオ（scenario: "login"）、それ以外はページ表示のシナリオ（"view"）。
+   * view のステップは仮のパス /docs で書かれているので、それも入力したパスに置き換える。
    * 入力値は innerHTML に入る可能性があるため、使える文字を厳しく制限する（XSS 対策）。 */
   var DEFAULT_URL = { host: "www.example.com", path: "/login", ip: "203.0.113.80" };
+  var VIEW_PATH = "/docs";
+  function scenarioFor(path) { return path === DEFAULT_URL.path ? "login" : "view"; }
   var urlInfo = { host: DEFAULT_URL.host, path: DEFAULT_URL.path, ip: DEFAULT_URL.ip };
   function fakeIp(host) {
     if (host === DEFAULT_URL.host) return DEFAULT_URL.ip;
@@ -114,11 +118,8 @@
     function tr(str, key) {
       if (typeof str !== "string") return str;
       var r = str.split(DEFAULT_URL.host).join(host).split(DEFAULT_URL.ip).join(ip);
-      if (path !== DEFAULT_URL.path) {
-        r = r.split("GET /login：ログインページをください").join("GET " + path + "：ページをください")
-             .split("GET /login").join("GET " + path)
-             .split("「/login のページ").join("「" + path + " のページ");
-      }
+      // ページ表示シナリオの仮パス（/docs）を入力したパスに。/login のときは login のステップしか使わない
+      if (path !== VIEW_PATH) r = r.split(VIEW_PATH).join(path);
       if (delta && key === "長さ") {
         var m = /^(41|57) バイト$/.exec(r);
         if (m) r = (Number(m[1]) + delta) + " バイト";
@@ -132,7 +133,7 @@
       }
       if (v && typeof v === "object") {
         var o = {};
-        for (var k in v) o[k] = (k === "id" || k === "stage" || k === "from" || k === "to" || k === "terms" || k === "only") ? v[k] : walk(v[k], k);
+        for (var k in v) o[k] = (k === "id" || k === "stage" || k === "from" || k === "to" || k === "terms" || k === "only" || k === "scenario" || k === "cookie") ? v[k] : walk(v[k], k);
         return o;
       }
       return tr(v, key);
@@ -204,6 +205,8 @@
   /* ---------- 状態 ---------- */
   var state = {
     proto: "https",
+    scenario: "login", // "login"（/login）| "view"（それ以外のパス）。URL から自動で決まる
+    cookie: false,     // 🍪 ログイン済み（view のときだけ意味がある）
     sniff: false,
     loss: false,
     speed: 1,
@@ -243,6 +246,9 @@
     for (var i = 0; i < STAGES.length; i++) if (STAGES[i].id === id) return i;
     return -1;
   }
+  function stageLabel(st) {
+    return (st.labels && st.labels[state.scenario]) || st.label;
+  }
   function stageColor(id) {
     var s = stageById(id);
     return (s && s.color) || ("var(--c-" + id + ", var(--accent))");
@@ -270,13 +276,18 @@
   function later(fn, ms) { var t = setTimeout(fn, ms); anim.timers.push(t); return t; }
 
   /* ---------- 表示ステップ列 ---------- */
-  function computeSeq() {
-    return ALL_STEPS.filter(function (s) {
-      if (s.only && s.only !== state.proto) return false;
-      if (s.lossOnly && !state.loss) return false;
-      return true;
-    });
+  function stepVisible(s, proto) {
+    if (s.only && s.only !== proto) return false;
+    if (s.lossOnly && !state.loss) return false;
+    if (s.scenario && s.scenario !== state.scenario) return false;
+    if (typeof s.cookie === "boolean" && s.cookie !== state.cookie) return false;
+    return true;
   }
+  function computeSeq() {
+    return ALL_STEPS.filter(function (s) { return stepVisible(s, state.proto); });
+  }
+  // 切替で対応するステップを探すための「変種を除いた id」（-guest / -cookie と末尾 -https / -http を取る）
+  function baseId(id) { return String(id).replace(/-(guest|cookie)(?=-|$)/g, "").replace(/-https?$/, ""); }
   function current() { return state.pos < state.seq.length ? state.seq[state.pos] : null; }
   function isSummary() { return state.pos >= state.seq.length; }
 
@@ -289,9 +300,9 @@
     if (!cur) { state.pos = 0; return; }
     var idx = indexWhere(function (s) { return s.id === cur.id; });
     if (idx < 0) {
-      // HTTP/HTTPS 切替：id 末尾の -https / -http を入れ替えた「対応するステップ」を優先
-      var base = String(cur.id).replace(/-https?$/, "");
-      if (base !== cur.id) idx = indexWhere(function (s) { return String(s.id).replace(/-https?$/, "") === base; });
+      // HTTP/HTTPS・ログイン済みの切替：-https / -http、-guest / -cookie を入れ替えた「対応するステップ」を優先
+      var base = baseId(cur.id);
+      if (base !== cur.id) idx = indexWhere(function (s) { return baseId(s.id) === base; });
     }
     if (idx < 0) idx = indexWhere(function (s) { return s.stage === cur.stage; });
     if (idx < 0) {
@@ -625,7 +636,7 @@
     var L = LAYOUTS[state.layoutKey];
     var g = svg("g", { "class": "done" });
     var wide = state.layoutKey === "wide";
-    g.appendChild(svg("text", { "class": "done-banner halo", x: wide ? L.nodes.server[0] : L.w / 2, y: wide ? L.h - 14 : 300, "text-anchor": "middle" }, "🎉 ログイン完了！"));
+    g.appendChild(svg("text", { "class": "done-banner halo", x: wide ? L.nodes.server[0] : L.w / 2, y: wide ? L.h - 14 : 300, "text-anchor": "middle" }, state.scenario === "view" ? "🎉 ページ表示完了！" : "🎉 ログイン完了！"));
     svgRefs.fx.appendChild(g);
     var sg = svgRefs.nodes.server; if (sg) { sg.classList.add("is-endpoint"); sg.querySelector(".node-disc").style.stroke = "var(--c-http)"; }
     var pg = svgRefs.nodes.pc; if (pg) { pg.classList.add("is-endpoint"); pg.querySelector(".node-disc").style.stroke = "var(--c-http)"; }
@@ -643,6 +654,7 @@
     $("addrBadge").textContent = https ? "保護された通信" : "保護されていない通信";
     bar.setAttribute("aria-label", "アドレスバー：" + (https ? "保護された通信 " : "保護されていない通信 ") + full);
     $("customNote").hidden = !isCustomUrl();
+    $("subtitle").textContent = state.scenario === "view" ? "URL を入力してからページが表示されるまで" : "URL を入力してからログインするまで";
   }
 
   function renderStagebar() {
@@ -657,8 +669,8 @@
       if (i === curIdx) { b.classList.add("is-current"); b.setAttribute("aria-current", "step"); }
       else if (i < curIdx) b.classList.add("is-done");
       b.disabled = count === 0;
-      b.setAttribute("aria-label", st.label + "（" + count + " ステップ）へ移動");
-      b.appendChild(el("span", { "class": "stage-label" }, st.label));
+      b.setAttribute("aria-label", stageLabel(st) + "（" + count + " ステップ）へ移動");
+      b.appendChild(el("span", { "class": "stage-label" }, stageLabel(st)));
       b.appendChild(el("span", { "class": "stage-count", "aria-hidden": "true" }, String(count)));
       var fill = el("span", { "class": "stage-fill", "aria-hidden": "true" });
       if (i === curIdx && cur) {
@@ -700,11 +712,23 @@
     $("tglProto").setAttribute("aria-label", state.proto === "https" ? "プロトコル：HTTPS（押すと HTTP に切替）" : "プロトコル：HTTP（押すと HTTPS に切替）");
     setToggle("tglSniff", state.sniff);
     setToggle("tglLoss", state.loss);
+    var view = state.scenario === "view";
+    var cb = $("tglCookie");
+    setToggle("tglCookie", view && state.cookie);
+    cb.classList.toggle("is-disabled", !view);
+    cb.setAttribute("aria-disabled", view ? "false" : "true");
+    var why = view
+      ? (state.cookie ? "ログイン済み：以前ログインしたときの Cookie をブラウザが自動で送ります（押すと未ログインに）"
+                      : "未ログイン：Cookie なしでページを開きます（押すとログイン済みに）")
+      : COOKIE_DISABLED_MSG;
+    cb.title = why;
+    cb.setAttribute("aria-label", "🍪 ログイン済み。" + why);
     document.querySelectorAll(".seg").forEach(function (b) {
       b.setAttribute("aria-checked", Number(b.getAttribute("data-speed")) === state.speed ? "true" : "false");
       b.tabIndex = Number(b.getAttribute("data-speed")) === state.speed ? 0 : -1;
     });
   }
+  var COOKIE_DISABLED_MSG = "いまは /login（ログインの流れ）を表示中なので使えません。/login 以外の URL（例：https://www.example.com/docs）を開くと、ログイン済みかどうかを切り替えられます";
   function setToggle(id, on) {
     var b = $(id);
     b.classList.toggle("is-on", on);
@@ -716,7 +740,7 @@
     $("stepNo").textContent = (state.pos + 1) + " / " + n;
     var st = stageById(step.stage);
     var pill = $("stagePill");
-    pill.textContent = st ? st.label : step.stage;
+    pill.textContent = st ? stageLabel(st) : step.stage;
     pill.style.setProperty("--sc", stageColor(step.stage));
     var flag = $("flagPill");
     flag.className = "flag-pill";
@@ -849,7 +873,7 @@
   function matomeFor(proto) {
     for (var i = ALL_STEPS.length - 1; i >= 0; i--) {
       var st = ALL_STEPS[i];
-      if (st.only && st.only !== proto) continue;
+      if (!stepVisible(st, proto)) continue;
       var m = /【まとめ】\s*([^\n]+)/.exec(st.sniff || "");
       if (m) return m[1];
     }
@@ -859,15 +883,17 @@
     var card = $("summaryCard");
     card.textContent = "";
     var https = state.proto === "https";
-    card.appendChild(el("h2", { id: "summaryHead" }, "🎉 まとめ：URL 入力からログインまで"));
+    var view = state.scenario === "view";
+    card.appendChild(el("h2", { id: "summaryHead" }, view ? "🎉 まとめ：URL 入力からページ表示まで" : "🎉 まとめ：URL 入力からログインまで"));
     card.appendChild(el("p", { "class": "summary-lead" },
       "今回は " + (https ? "HTTPS" : "HTTP") + " で、全 " + state.seq.length + " ステップの旅をしました。" +
+      (view && state.cookie ? "以前預かった Cookie（セッション ID）をブラウザが自動で送ったので、ID やパスワードを送り直さずに本人向けのページが表示されました。" : "") +
       (state.loss ? "パケットロスが起きても、TCP が再送して届けてくれました。" : "")));
     var ul = el("ul", { "class": "stage-recap" });
     STAGES.forEach(function (st) {
       var c = state.seq.filter(function (s) { return s.stage === st.id; }).length;
       if (!c) return;
-      var li = el("li", null, st.label + "　" + c + " ステップ");
+      var li = el("li", null, stageLabel(st) + "　" + c + " ステップ");
       li.style.setProperty("--sc", st.color || stageColor(st.id));
       ul.appendChild(li);
     });
@@ -885,7 +911,7 @@
     hr.appendChild(thH); hr.appendChild(thS);
     thead.appendChild(hr); table.appendChild(thead);
     var rows = [
-      ["中身（パスワードなど）", ["そのまま（平文）で流れる", "bad"], ["TLS で暗号化され読めない", "good"]],
+      [view ? (state.cookie ? "中身（Cookie・ページなど）" : "中身（URL のパス・ページなど）") : "中身（パスワードなど）", ["そのまま（平文）で流れる", "bad"], ["TLS で暗号化され読めない", "good"]],
       ["途中での書き換え", ["気づけない", "bad"], ["改ざんを検知できる", "good"]],
       ["相手が本物か", ["確かめない", "bad"], ["証明書で確認する", "good"]],
       ["盗聴者に見えるもの", [matomeFor("http") || "URL・ID・パスワードまで全部", "bad"], [matomeFor("https") || "接続先の IP・ドメイン名・通信量くらい", "good"]],
@@ -1015,9 +1041,25 @@
     }
     return -1;
   }
+  // parseUserUrl の結果を反映する（URL 入力・FAQ のジャンプ共通）。シナリオが変わりうるので位置は呼び出し側で決める
+  function applyParsedUrl(r) {
+    urlInfo = { host: r.host, path: r.path, ip: fakeIp(r.host) };
+    state.proto = r.proto;
+    state.scenario = scenarioFor(r.path);
+    applyUrlToSteps();
+    state.seq = computeSeq();
+    buildDiagram();
+    var input = $("addrInput");
+    input.removeAttribute("data-dirty");
+  }
   function jumpTo(j) {
     if (!j) return;
     closeFaq();
+    var r = null;
+    if (j.url) r = parseUserUrl(j.url);
+    else if (j.path && j.path !== urlInfo.path) r = { proto: state.proto, host: urlInfo.host, path: j.path };
+    if (r && !r.error) { applyParsedUrl(r); $("addrError").hidden = true; }
+    if (typeof j.cookie === "boolean" && j.cookie !== state.cookie) { state.cookie = j.cookie; rebuildSeq(); }
     if (j.proto) setProto(j.proto);
     if (j.loss && !state.loss) { state.loss = true; rebuildSeq(); }
     if (j.sniff && !state.sniff) { state.sniff = true; applySniffVisibility(); }
@@ -1136,6 +1178,19 @@
     $("tglProto").addEventListener("click", function () { setProto(state.proto === "https" ? "http" : "https"); afterToggle(); });
     $("tglSniff").addEventListener("click", function () { state.sniff = !state.sniff; afterToggle(); });
     $("tglLoss").addEventListener("click", function () { state.loss = !state.loss; rebuildSeq(); afterToggle(); });
+    $("tglCookie").addEventListener("click", function () {
+      var msg = $("addrError");
+      if (state.scenario !== "view") {
+        // 押せない理由をその場で伝える（aria-disabled なのでフォーカス・クリックは受け付ける）
+        msg.classList.remove("is-ok"); msg.classList.add("is-hint");
+        msg.textContent = "🍪 " + COOKIE_DISABLED_MSG + "。";
+        msg.hidden = false;
+        return;
+      }
+      state.cookie = !state.cookie;
+      rebuildSeq();
+      afterToggle();
+    });
 
     $("glossaryBtn").addEventListener("click", function () { openTerm(null); });
     function submitUrl() {
@@ -1145,17 +1200,14 @@
       var msg = $("addrError");
       msg.classList.remove("is-ok", "is-hint");
       if (r.error) { msg.textContent = "⚠ " + r.error; msg.hidden = false; input.focus(); return; }
-      input.removeAttribute("data-dirty");
-      urlInfo = { host: r.host, path: r.path, ip: fakeIp(r.host) };
-      state.proto = r.proto;
-      applyUrlToSteps();
-      state.seq = computeSeq();
-      buildDiagram();
+      applyParsedUrl(r);
       input.blur();
       goTo(0, { user: true });
       var ms = Math.max(1, Math.round(performance.now() - t0));
       msg.textContent = (r.port ? "ℹ ポート番号の指定は無視し、標準の " + (r.proto === "https" ? "443" : "80") + " 番で表示します。" : "") +
-        "✅ " + r.host + " の通信に切り替えました（準備 " + ms + " ミリ秒）。「次へ ▶」か「▶ 再生」で進めてください。";
+        "✅ " + r.host + " の通信に切り替えました（準備 " + ms + " ミリ秒）。" +
+        (state.scenario === "view" ? "ページを開くだけの流れです（🍪 で Cookie あり／なしを切替）。" : "") +
+        "「次へ ▶」か「▶ 再生」で進めてください。";
       msg.classList.add("is-ok");
       msg.hidden = false;
     }

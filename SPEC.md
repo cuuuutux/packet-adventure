@@ -37,6 +37,8 @@ A は B のファイルを、B は A のファイルを**編集しない**。デ
 ```js
 window.STAGES = [ { id: "dns", label: "① DNS 名前解決", color: "var(--c-dns)" }, ... ];
 // id は "dns" | "tcp" | "tls" | "http" | "close" のいずれか。表示順に並べる。
+// labels（任意）：シナリオ別の表示名。例 { id: "http", label: "④ HTTP ページ表示とログイン", labels: { view: "④ HTTP ページ表示" } }
+//   A は labels[現在のシナリオ] があればそれを、なければ label を表示する。
 
 window.STEPS = [ Step, ... ];      // 表示順
 window.GLOSSARY = { "SYN": Term, ... };
@@ -55,6 +57,8 @@ window.GLOSSARY = { "SYN": Term, ... };
   dropped: false,                // true なら途中（router を過ぎたあたり）で💥消滅させる
   only: undefined,               // "http" | "https" | undefined。プロトコル切替で表示/非表示
   lossOnly: false,               // true のステップは「パケットロス」トグル ON のときだけ出る
+  scenario: undefined,           // "login" | "view" | undefined。URL のパスで決まるシナリオ（下記）。undefined は全シナリオ共通
+  cookie: undefined,             // true | false | undefined。「🍪 ログイン済み」トグルの ON / OFF で表示/非表示。undefined は両方に出る
   desc: "HTML文字列。2〜5文。何が起きていて、なぜ必要か。<b>, <code> 程度のみ使用",
   headers: [                     // パケットの中身パネル。下位層から順に
     { layer: "IP",  fields: [["送信元IP", "192.168.1.10"], ["宛先IP", "203.0.113.80"]] },
@@ -64,6 +68,27 @@ window.GLOSSARY = { "SYN": Term, ... };
   terms: ["SYN", "ポート番号"]     // GLOSSARY のキー。解説パネル下に用語チップとして表示
 }
 ```
+
+### シナリオ（scenario）と Cookie（cookie）
+
+アドレスバーに入力した URL のパスで、HTTP ステージの中身が自動で切り替わる。
+
+| パス | scenario | HTTP ステージ |
+|---|---|---|
+| `/login`（既定の `https://www.example.com/login`） | `"login"` | GET /login → 200（ログインフォーム）→ POST /login → 302 + Set-Cookie → GET /mypage（Cookie）→ 200 |
+| それ以外 | `"view"` | GET &lt;パス&gt; → 200（そのページの HTML）のみ。POST・302 はない |
+
+- `view` では「🍪 ログイン済み」トグルが使える。ON（`cookie: true` のステップ）では、以前のログインで預かった
+  `Cookie: session=…` をブラウザが自動で付けて GET し、サーバーはログイン済みのページを返す。OFF（`cookie: false`）は Cookie なしの GET。
+  `login` ではこのトグルは無効（`aria-disabled`、押すと理由を表示）。
+- 表示ステップ列＝ `only`・`lossOnly`・`scenario`・`cookie` の条件をすべて満たすステップ（未指定の条件は常に満たす）。
+- 切断ステージは HTTP で送ったバイト数によって seq/ack が変わるため、シナリオ（と cookie）ごとに別ステップ。
+  id は login が `close-fin-https`、view が `close-fin-view-guest-https` / `close-fin-view-cookie-https` のように付ける。
+  トグル切替時、A は id から `-guest` / `-cookie` と末尾の `-https` / `-http` を取り除いた同じ id のステップに移動する。
+- `view` のステップはホスト `www.example.com`・仮のパス `/docs` で書く。A が入力されたパスに置き換える（ホスト・IP も同様）。
+  入力した URL ではバイト数・番号は学習用の値（画面にその旨を表示）。
+- 最後のステップの `sniff` には `【まとめ】…` の 1 行を入れる（まとめカードの比較表に使う）。`view` の【まとめ】や
+  タイトル・sniff には「ログイン」という語を使わない（ログインしていない流れなので）。
 
 ### Term
 
@@ -77,7 +102,7 @@ window.GLOSSARY = { "SYN": Term, ... };
   アドレスバー風表示（HTTPS 時 `🔒 https://www.example.com/login`、HTTP 時 `⚠ http://...`）。
 - コントロール：⏮ 最初へ / ◀ 戻る / ▶ 再生・⏸ 一時停止 / 次へ ▶、ステップスライダー、
   速度（0.5x/1x/2x）。キーボード：←/→ で前後、Space で再生/停止。
-- トグル：🔒 HTTPS ⇄ 🔓 HTTP、👀 盗聴者モード、💥 パケットロス。
+- トグル：🔒 HTTPS ⇄ 🔓 HTTP、👀 盗聴者モード、💥 パケットロス、🍪 ログイン済み（`view` シナリオのみ）。
   切替時は表示ステップ列を再計算し、現在位置をできるだけ同じステージに保つ。
 - ステージ進捗バー：STAGES を横に並べ、現在ステージを強調。クリックでそのステージ先頭へ。
 - ネットワーク図：インライン SVG。pc / router / dns / server を配置し、リンクを線で描く。
@@ -89,5 +114,6 @@ window.GLOSSARY = { "SYN": Term, ... };
 - パケットの中身パネル：headers を層ごとのカードで表示（Ethernet→IP→TCP/UDP→TLS→HTTP の積み木のイメージ）。
 - 盗聴者パネル（モード ON 時）：sniff を表示。暗号化ステップでは文字化け風に。
 - 最後のステップの後に「まとめ」カード：HTTP と HTTPS の違い、盗聴者に何が見えたか。
+  見出し・完了バナーはシナリオで変える（login「ログイン完了」／view「ページ表示完了」）。
 - 画面下に小さく「このサイトは学習用シミュレーションです。IP アドレスは文書用の予約アドレス（RFC 5737）を使用」。
 - 1 画面に収まるレイアウト（1366×768 で主要要素がスクロールなしで見えるのが理想）。スマホでは縦積み。
