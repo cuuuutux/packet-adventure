@@ -64,8 +64,10 @@
   --mono: "Cascadia Mono", Consolas, "BIZ UDGothic", "MS Gothic", ui-monospace, monospace;
 }
 
+/* ダーク配色：OS 設定に従う（手動でライトにしたときは除く）＋ 手動でダーク */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
     --bg: #11151d;
     --bg-grad: radial-gradient(1200px 600px at 10% -10%, #1a2340 0%, transparent 60%),
                radial-gradient(900px 500px at 110% 0%, #15261d 0%, transparent 55%);
@@ -113,6 +115,55 @@
     --sniff-bg: #0b0e14;
   }
 }
+:root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #11151d;
+    --bg-grad: radial-gradient(1200px 600px at 10% -10%, #1a2340 0%, transparent 60%),
+               radial-gradient(900px 500px at 110% 0%, #15261d 0%, transparent 55%);
+    --surface: #1a1f2a;
+    --surface-2: #202634;
+    --surface-3: #283043;
+    --ink: #e7ebf3;
+    --ink-2: #b7c0d0;
+    --ink-3: #8f9ab0;
+    --line: #2f3747;
+    --line-strong: #46506a;
+    --accent: #7b93ff;
+    --accent-ink: #0f1420;
+    --focus: #8fb0ff;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 6px 20px rgba(0, 0, 0, .25);
+
+    --c-dns: #1b97ab;
+    --c-tcp: #6668e8;
+    --c-tls: #c8781c;
+    --c-http: #2f9e5e;
+    --c-close: #74839b;
+
+    --l-eth: #8e98ab;
+    --l-ip: #5b93ec;
+    --l-l4: #9a83f0;
+    --l-tls: #e0943a;
+    --l-app: #4cbf7c;
+    --l-other: #c9a467;
+
+    --zone-lan: #18233b;
+    --zone-lan-ink: #8aa6e6;
+    --zone-net: #16271e;
+    --zone-net-ink: #7cc49a;
+    --node-bg: #222938;
+    --node-ink: #d2d9e6;
+    --link: #4b556b;
+
+    --danger: #ff7b6e;
+    --danger-bg: #3a1f1f;
+    --warn: #ffb44d;
+    --warn-bg: #3a2c16;
+    --ok: #62d18f;
+    --ok-bg: #173123;
+
+    --sniff-bg: #0b0e14;
+}
+:root[data-theme="light"] { color-scheme: light; }
 
 /* ---------- ベース ---------- */
 *, *::before, *::after { box-sizing: border-box; }
@@ -879,3 +930,6 @@ input.addr-url { border: 0; background: transparent; color: var(--ink); padding:
 .faq-item[open] > summary { color: var(--accent-ink); background: var(--accent); border-radius: 5px 9px 0 0; }
 .faq-item[open] > summary:hover { border-radius: 10px 10px 0 0; }
 .addr-msg.is-hint { color: var(--ink-3); }
+
+/* テーマ切替ボタン */
+.theme-btn { min-width: 40px; }

@@ -7,6 +7,10 @@
   <meta name="color-scheme" content="light dark">
   <title>パケットの大冒険</title>
   <link rel="stylesheet" href="css/style.css">
+  <script>
+    // 保存したテーマを最初の描画前に反映（ちらつき防止）。保存できない環境でも動くよう try/catch
+    try { var t = localStorage.getItem("pa-theme"); if (t === "dark" || t === "light") document.documentElement.setAttribute("data-theme", t); } catch (e) {}
+  </script>
 </head>
 <body>
   <a class="skip-link" href="#explain">解説へスキップ</a>
@@ -23,6 +27,7 @@
         <button type="button" class="addr-go" id="addrGo" aria-label="この URL でシミュレーションする">移動</button>
       </div>
       <div class="header-btns">
+        <button type="button" class="btn btn-ghost glossary-btn theme-btn" id="themeBtn" aria-label="ダークモードに切り替え" title="ライト / ダーク切替">🌙</button>
         <button type="button" class="btn btn-ghost glossary-btn" id="faqBtn" aria-label="よくある質問を開く">❓ よくある質問</button>
         <button type="button" class="btn btn-ghost glossary-btn" id="glossaryBtn" aria-label="用語集を開く">📖 用語集</button>
       </div>

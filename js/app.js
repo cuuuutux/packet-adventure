@@ -1174,6 +1174,27 @@
       $("addrInput").value = (state.proto === "https" ? "https" : "http") + "://" + DEFAULT_URL.host + DEFAULT_URL.path;
       submitUrl();
     });
+    function isDark() {
+      var t = document.documentElement.getAttribute("data-theme");
+      if (t) return t === "dark";
+      return !!(window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches);
+    }
+    function renderThemeBtn() {
+      var d = isDark(), b = $("themeBtn");
+      b.textContent = d ? "☀" : "🌙";
+      b.setAttribute("aria-label", d ? "ライトモードに切り替え" : "ダークモードに切り替え");
+    }
+    $("themeBtn").addEventListener("click", function () {
+      var next = isDark() ? "light" : "dark";
+      document.documentElement.setAttribute("data-theme", next);
+      try { localStorage.setItem("pa-theme", next); } catch (e) {}
+      renderThemeBtn();
+    });
+    if (window.matchMedia) {
+      var mq = matchMedia("(prefers-color-scheme: dark)");
+      if (mq.addEventListener) mq.addEventListener("change", renderThemeBtn);
+    }
+    renderThemeBtn();
     $("faqBtn").addEventListener("click", openFaq);
     $("faqClose").addEventListener("click", closeFaq);
     var fdlg = $("faqDialog");
