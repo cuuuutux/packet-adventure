@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="ブラウザに URL を入力してからログインするまで、ネットワークで何が起きているかを 1 ステップずつ学べるシミュレーター">
+  <meta name="color-scheme" content="light dark">
+  <title>パケットの大冒険</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <a class="skip-link" href="#explain">解説へスキップ</a>
+  <div class="app">
+    <header class="site-header">
+      <div class="brand">
+        <h1>パケットの大冒険</h1>
+        <p class="subtitle">URL を入力してからログインするまで</p>
+      </div>
+      <div class="addressbar" id="addressbar" role="img" aria-label="アドレスバー">
+        <span class="addr-icon" id="addrIcon" aria-hidden="true">🔒</span>
+        <span class="addr-url" id="addrUrl">https://www.example.com/login</span>
+        <span class="addr-badge" id="addrBadge">保護された通信</span>
+      </div>
+      <button type="button" class="btn btn-ghost glossary-btn" id="glossaryBtn" aria-label="用語集を開く">📖 用語集</button>
+    </header>
+
+    <nav class="stagebar" id="stagebar" aria-label="ステージ"></nav>
+
+    <section class="toolbar" aria-label="操作">
+      <div class="transport" role="group" aria-label="再生操作">
+        <button type="button" class="btn btn-icon" id="btnFirst" aria-label="最初のステップへ" title="最初へ">⏮</button>
+        <button type="button" class="btn btn-icon" id="btnPrev" aria-label="前のステップへ（←キー）" title="戻る (←)">◀</button>
+        <button type="button" class="btn btn-primary btn-play" id="btnPlay" aria-label="自動再生（Spaceキー）" title="再生 / 一時停止 (Space)"><span id="playIcon" aria-hidden="true">▶</span><span class="btn-text" id="playText">再生</span></button>
+        <button type="button" class="btn btn-next" id="btnNext" aria-label="次のステップへ（→キー）" title="次へ (→)"><span class="btn-text">次へ</span> <span aria-hidden="true">▶</span></button>
+      </div>
+      <div class="scrubber">
+        <label class="visually-hidden" for="slider">ステップ位置</label>
+        <input type="range" id="slider" min="1" max="2" value="1" step="1">
+        <output class="step-count" id="stepCount" for="slider">1 / 1</output>
+      </div>
+      <div class="speed" role="radiogroup" aria-label="再生速度">
+        <button type="button" class="seg" data-speed="0.5" role="radio" aria-checked="false" aria-label="速度 0.5倍">0.5x</button>
+        <button type="button" class="seg" data-speed="1" role="radio" aria-checked="true" aria-label="速度 1倍">1x</button>
+        <button type="button" class="seg" data-speed="2" role="radio" aria-checked="false" aria-label="速度 2倍">2x</button>
+      </div>
+      <div class="toggles" role="group" aria-label="シミュレーション設定">
+        <button type="button" class="toggle is-on" id="tglProto" aria-pressed="true" aria-label="HTTPS を使う（オフで HTTP）"><span class="toggle-track" aria-hidden="true"><span class="toggle-thumb"></span></span><span id="protoText">🔒 HTTPS</span></button>
+        <button type="button" class="toggle" id="tglSniff" aria-pressed="false" aria-label="盗聴者モード"><span class="toggle-track" aria-hidden="true"><span class="toggle-thumb"></span></span>👀 盗聴者</button>
+        <button type="button" class="toggle" id="tglLoss" aria-pressed="false" aria-label="パケットロスを起こす"><span class="toggle-track" aria-hidden="true"><span class="toggle-thumb"></span></span>💥 ロス</button>
+      </div>
+    </section>
+
+    <main class="stage-area">
+      <div class="col col-left">
+        <section class="card diagram-card" aria-label="ネットワーク図">
+          <div class="diagram-wrap" id="diagramWrap">
+            <svg id="net" role="img" aria-labelledby="netTitle netDesc" preserveAspectRatio="xMidYMid meet">
+              <title id="netTitle">ネットワーク図</title>
+              <desc id="netDesc">あなたのPC、家のルーター、DNSサーバー、Webサーバーのつながりと、パケットの移動</desc>
+            </svg>
+          </div>
+          <div class="diagram-foot">
+            <p class="route-text" id="routeText" aria-live="polite"></p>
+            <button type="button" class="btn btn-ghost btn-small" id="btnReplay" aria-label="このステップのアニメーションをもう一度再生">↻ もう一度</button>
+          </div>
+        </section>
+
+        <section class="card sniff-card" id="sniffCard" aria-label="盗聴者に見えるもの" hidden>
+          <div class="sniff-avatar" aria-hidden="true">🕵️</div>
+          <div class="sniff-bubble">
+            <p class="sniff-head">盗聴者に見えているもの <span class="sniff-where">（PC〜ルーター間）</span></p>
+            <p class="sniff-text" id="sniffText"></p>
+          </div>
+        </section>
+      </div>
+
+      <div class="col col-right">
+        <section class="card explain-card" id="explain" tabindex="-1" aria-live="polite">
+          <div class="explain-meta">
+            <span class="step-no" id="stepNo">1 / 1</span>
+            <span class="stage-pill" id="stagePill">—</span>
+            <span class="flag-pill" id="flagPill" hidden></span>
+          </div>
+          <h2 class="step-title" id="stepTitle">読み込み中…</h2>
+          <div class="step-desc" id="stepDesc"></div>
+          <div class="terms" id="terms" aria-label="このステップの用語"></div>
+        </section>
+
+        <section class="card packet-card" id="packetCard" aria-labelledby="packetHead">
+          <div class="card-head">
+            <h3 id="packetHead">パケットの中身</h3>
+            <span class="card-hint">外側（下位層）→ 内側（上位層）</span>
+          </div>
+          <div class="layers" id="layers"></div>
+        </section>
+
+        <section class="card summary-card" id="summaryCard" hidden aria-labelledby="summaryHead"></section>
+      </div>
+    </main>
+
+    <footer class="site-footer">
+      このサイトは学習用シミュレーションです。IP アドレスは文書用の予約アドレス（RFC 5737）を使用
+      <span class="kbd-hint">｜操作：<kbd>←</kbd><kbd>→</kbd> 前後　<kbd>Space</kbd> 再生/停止</span>
+    </footer>
+  </div>
+
+  <dialog class="term-dialog" id="termDialog" aria-labelledby="termName">
+    <div class="term-dialog-inner">
+      <button type="button" class="btn btn-icon dialog-close" id="termClose" aria-label="閉じる">✕</button>
+      <div id="termBody"></div>
+      <div class="term-index">
+        <p class="term-index-head">用語集</p>
+        <div class="term-index-list" id="termIndex"></div>
+      </div>
+    </div>
+  </dialog>
+
+  <script src="js/glossary.js"></script>
+  <script src="js/steps.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
