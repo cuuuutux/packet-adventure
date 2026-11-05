@@ -16,12 +16,12 @@
         <h1>パケットの大冒険</h1>
         <p class="subtitle">URL を入力してからログインするまで</p>
       </div>
-      <form class="addressbar" id="addressbar" aria-label="アドレスバー" autocomplete="off">
+      <div class="addressbar" id="addressbar" role="group" aria-label="アドレスバー">
         <span class="addr-icon" id="addrIcon" aria-hidden="true">🔒</span>
-        <input class="addr-url" id="addrInput" type="text" inputmode="url" spellcheck="false" value="https://www.example.com/login" aria-label="URL を入力して Enter（例：https://www.example.com/login）" title="好きな URL を入力して Enter">
+        <input class="addr-url" id="addrInput" type="text" autocomplete="off" inputmode="url" spellcheck="false" value="https://www.example.com/login" aria-label="URL を入力して Enter（例：https://www.example.com/login）" title="好きな URL を入力して Enter">
         <span class="addr-badge" id="addrBadge">保護された通信</span>
-        <button type="submit" class="addr-go" aria-label="この URL でシミュレーションする">移動</button>
-      </form>
+        <button type="button" class="addr-go" id="addrGo" aria-label="この URL でシミュレーションする">移動</button>
+      </div>
       <div class="header-btns">
         <button type="button" class="btn btn-ghost glossary-btn" id="faqBtn" aria-label="よくある質問を開く">❓ よくある質問</button>
         <button type="button" class="btn btn-ghost glossary-btn" id="glossaryBtn" aria-label="用語集を開く">📖 用語集</button>
@@ -87,7 +87,7 @@
             <span class="stage-pill" id="stagePill">—</span>
             <span class="flag-pill" id="flagPill" hidden></span>
           </div>
-          <h2 class="step-title" id="stepTitle">読み込み中…</h2>
+          <h2 class="step-title" id="stepTitle">準備中…</h2>
           <div class="step-desc" id="stepDesc"></div>
           <div class="terms" id="terms" aria-label="このステップの用語"></div>
         </section>
@@ -130,6 +130,14 @@
     </div>
   </dialog>
 
+  <script>
+    // 4 秒たっても起動しなければ、原因の手がかりを表示する（「準備中…」のまま固まらないように）
+    setTimeout(function () {
+      if (window.PacketAdventure) return;
+      var t = document.getElementById("stepTitle");
+      if (t) t.textContent = "⚠ 表示に失敗しました。Ctrl + F5 で再読み込みしてください。";
+    }, 4000);
+  </script>
   <script src="js/glossary.js"></script>
   <script src="js/faq.js"></script>
   <script src="js/steps.js"></script>

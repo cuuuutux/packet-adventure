@@ -639,7 +639,7 @@
     $("addrIcon").textContent = https ? "🔒" : "⚠";
     var full = (https ? "https" : "http") + "://" + urlInfo.host + urlInfo.path;
     var input = $("addrInput");
-    if (document.activeElement !== input) input.value = full;
+    if (document.activeElement !== input && !input.hasAttribute("data-dirty")) input.value = full;
     $("addrBadge").textContent = https ? "保護された通信" : "保護されていない通信";
     bar.setAttribute("aria-label", "アドレスバー：" + (https ? "保護された通信 " : "保護されていない通信 ") + full);
     $("customNote").hidden = !isCustomUrl();
@@ -1138,25 +1138,41 @@
     $("tglLoss").addEventListener("click", function () { state.loss = !state.loss; rebuildSeq(); afterToggle(); });
 
     $("glossaryBtn").addEventListener("click", function () { openTerm(null); });
-    $("addressbar").addEventListener("submit", function (e) {
-      e.preventDefault();
-      var r = parseUserUrl($("addrInput").value);
-      var err = $("addrError");
-      if (r.error) { err.textContent = "⚠ " + r.error; err.hidden = false; return; }
-      err.hidden = true;
-      if (r.port) { err.textContent = "ℹ ポート番号の指定は無視して、標準の " + (r.proto === "https" ? "443" : "80") + " 番で表示します。"; err.hidden = false; }
+    function submitUrl() {
+      var t0 = performance.now();
+      var input = $("addrInput");
+      var r = parseUserUrl(input.value);
+      var msg = $("addrError");
+      msg.classList.remove("is-ok", "is-hint");
+      if (r.error) { msg.textContent = "⚠ " + r.error; msg.hidden = false; input.focus(); return; }
+      input.removeAttribute("data-dirty");
       urlInfo = { host: r.host, path: r.path, ip: fakeIp(r.host) };
       state.proto = r.proto;
       applyUrlToSteps();
       state.seq = computeSeq();
       buildDiagram();
-      $("addrInput").blur();
+      input.blur();
       goTo(0, { user: true });
+      var ms = Math.max(1, Math.round(performance.now() - t0));
+      msg.textContent = (r.port ? "ℹ ポート番号の指定は無視し、標準の " + (r.proto === "https" ? "443" : "80") + " 番で表示します。" : "") +
+        "✅ " + r.host + " の通信に切り替えました（準備 " + ms + " ミリ秒）。「次へ ▶」か「▶ 再生」で進めてください。";
+      msg.classList.add("is-ok");
+      msg.hidden = false;
+    }
+    $("addrInput").addEventListener("keydown", function (e) {
+      if (e.key === "Enter" && !e.isComposing) { e.preventDefault(); submitUrl(); }
+      else if (e.key === "Escape") { this.removeAttribute("data-dirty"); renderAddress(); this.blur(); }
     });
+    $("addrInput").addEventListener("input", function () {
+      this.setAttribute("data-dirty", "1");
+      var msg = $("addrError"); msg.classList.remove("is-ok"); msg.classList.add("is-hint");
+      msg.textContent = "⌨ 入力したら Enter キーか「移動」で反映されます（Esc で取り消し）。"; msg.hidden = false;
+    });
+    $("addrGo").addEventListener("click", submitUrl);
     $("addrInput").addEventListener("focus", function () { if (state.playing) stopPlay(); this.select(); });
     $("addrReset").addEventListener("click", function () {
       $("addrInput").value = (state.proto === "https" ? "https" : "http") + "://" + DEFAULT_URL.host + DEFAULT_URL.path;
-      $("addressbar").requestSubmit ? $("addressbar").requestSubmit() : $("addressbar").dispatchEvent(new Event("submit", { cancelable: true }));
+      submitUrl();
     });
     $("faqBtn").addEventListener("click", openFaq);
     $("faqClose").addEventListener("click", closeFaq);
