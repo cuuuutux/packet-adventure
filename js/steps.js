@@ -186,7 +186,7 @@
       encrypted: false, dropped: false, only: mode, lossOnly: false,
       desc: "IP アドレスが分かったので、Web サーバーの <b>" + port(mode) + " 番ポート</b>（" + mode.toUpperCase() + " の窓口）に TCP の接続を申し込む <b>SYN</b> を送ります。" +
         "<b>TCP</b> は「抜けなく・順番どおり届ける」ために、データを送る前に 3 回のやりとり（<b>3ウェイハンドシェイク</b>）で準備をそろえます。" +
-        "シーケンス番号 1000 は「私が送るデータはこの番号から数えます」という宣言です（実際は推測されにくいランダムな数）。" +
+        "シーケンス番号 1000 は「私の番号はここから始めます」という宣言です（SYN 自体が 1 つ番号を使うので、データは 1001 番から。実際の初期値は推測されにくいランダムな数）。" +
         "パケットロス ON のときは、これがタイムアウト後に送り直した<b>再送の SYN</b> です（中身は 1 回目とまったく同じ）。",
       headers: [
         ipUp(SV_IP, "TCP"),
@@ -300,7 +300,7 @@
         ["レコード種別（見かけ）", "Application Data (23)"],
         ["レコード長", "2568 バイト（0x0a08）"],
         ["中身", "🔒 EncryptedExtensions / Certificate / CertificateVerify / Finished"],
-        ["証明書チェーン", "www.example.com → 中間CA → ルートCA"]
+        ["証明書チェーン", "www.example.com の証明書＋中間CA の証明書（ルートCA はブラウザ・OS が持っているので通常は送らない）"]
       ] }
     ],
     sniff: "ServerHello（平文）：TLS 1.3 / TLS_AES_128_GCM_SHA256 / key_share の公開値\nその後：17 03 03 0a 08 5e 91 c7 3b … (読めない)\n※TLS 1.3 では証明書も暗号化されるので見えない（TLS 1.2 までは丸見えだった）\n受信量：約 2.7 KB",
@@ -316,7 +316,7 @@
     encrypted: true, dropped: false, only: "https", lossOnly: false,
     desc: "証明書の検証に成功したので、PC もここまでの全メッセージから計算した <b>Finished</b> を暗号化して送り、TLS ハンドシェイクが完了します。" +
       "以降の HTTP のデータは、さきほど作った鍵による<b>共通鍵暗号</b>（AES-GCM）で暗号化されます。" +
-      "計算に手間のかかる<b>公開鍵暗号</b>の技術は「鍵の受け渡し」と「本人確認」だけに使い、大量のデータは高速な共通鍵暗号で守る、という役割分担がポイントです。",
+      "計算に手間のかかる<b>公開鍵暗号</b>の技術は「鍵の共有（鍵交換）」と「本人確認」だけに使い、大量のデータは高速な共通鍵暗号で守る、という役割分担がポイントです。",
     headers: [
       ipUp(SV_IP, "TCP"),
       tcp("https", "up", "PSH, ACK", 1518, 7701, "58 バイト"),
@@ -497,7 +497,7 @@
     desc: "ログイン成功。サーバーは <code>302 Found</code>（別の場所へ移動してね）と <code>Location: /mypage</code> で、マイページへ案内します。" +
       "HTTP は前回のやりとりを覚えていないので、<code>Set-Cookie</code> で「ログイン済み」を表す合言葉（セッション ID）をブラウザに預けます。" +
       "しかし HTTP ではこの <b>Cookie</b> も丸見えで、盗んだ人があなたになりすましてログインできてしまいます（セッションハイジャック）。" +
-      "なお、<code>Secure</code> 属性の Cookie は HTTP では使えないので付けられません。",
+      "なお、<code>Secure</code> 属性（HTTPS のときだけ送る）は HTTP のサイトでは使えません（今のブラウザは HTTP から届いた Secure 付き Cookie を受け付けません）。",
     headers: [
       ipDown(SV_IP, "TCP"),
       tcp("http", "down", "PSH, ACK", 7311, 1951, "290 バイト"),
@@ -613,7 +613,7 @@
       encrypted: false, dropped: false, only: mode, lossOnly: false,
       desc: "用事が済んだので、PC は「こちらから送るデータはもうない」という <b>FIN</b> を送ります。" +
         "TCP の切断は、両方向それぞれを閉じるために FIN と ACK を 2 往復させる（4 ウェイ）のが基本です。" +
-        (mode === "https" ? "HTTPS の場合は、その前に TLS の <code>close_notify</code>（暗号化通信を終える合図）を送るのが正式な作法です。" :
+        (mode === "https" ? "HTTPS の場合は、その前に TLS の <code>close_notify</code>（暗号化通信を終える合図）を送るのが正式な作法です（このシミュレーションでは省略）。" :
           "実際のブラウザは、同じサイトをすぐまた開くときに備えて、しばらく接続を開いたままにしておくこともあります。"),
       headers: [
         ipUp(SV_IP, "TCP"),

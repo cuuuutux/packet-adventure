@@ -225,13 +225,19 @@
     if (wasSummary) { state.pos = state.seq.length; return; }
     if (!cur) { state.pos = 0; return; }
     var idx = indexWhere(function (s) { return s.id === cur.id; });
+    if (idx < 0) {
+      // HTTP/HTTPS 切替：id 末尾の -https / -http を入れ替えた「対応するステップ」を優先
+      var base = String(cur.id).replace(/-https?$/, "");
+      if (base !== cur.id) idx = indexWhere(function (s) { return String(s.id).replace(/-https?$/, "") === base; });
+    }
     if (idx < 0) idx = indexWhere(function (s) { return s.stage === cur.stage; });
     if (idx < 0) {
-      // 同じステージが無い → ステージ順で一番近いもの
+      // 同じステージが無い（例：HTTP では TLS が無い）→ ステージ順で一番近いもの。同距離なら先のステージ
       var target = stageIndex(cur.stage);
       var best = -1, bestD = 1e9;
       state.seq.forEach(function (s, i) {
         var d = Math.abs(stageIndex(s.stage) - target);
+        if (stageIndex(s.stage) < target) d += 0.5;
         if (d < bestD) { bestD = d; best = i; }
       });
       idx = best >= 0 ? best : Math.round(oldPos / Math.max(1, oldLen) * state.seq.length);
@@ -679,7 +685,7 @@
     [/ethernet|イーサ|mac|wi-?fi/i, "--l-eth", "L2 データリンク"],
     [/^ip|ipv4|ipv6/i, "--l-ip", "L3 ネットワーク"],
     [/tcp|udp/i, "--l-l4", "L4 トランスポート"],
-    [/tls|ssl/i, "--l-tls", "暗号化"],
+    [/tls|ssl/i, "--l-tls", "TLS セキュリティ層"],
     [/http|dns|html|アプリ/i, "--l-app", "L7 アプリケーション"]
   ];
   function layerMeta(name) {
