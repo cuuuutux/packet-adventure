@@ -855,3 +855,13 @@ input[type="range"]::-moz-range-thumb {
 .faq-body p { margin: 0 0 8px; line-height: 1.7; }
 .faq-row { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
 .faq-jump { margin-left: auto; }
+
+/* ---------- URL 入力 ---------- */
+input.addr-url { border: 0; background: transparent; color: var(--ink); padding: 3px 0; outline: none; }
+.addressbar:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent); }
+.addressbar.is-http input.addr-url { color: var(--danger); }
+.addr-go { flex: none; border: 0; border-radius: 999px; padding: 3px 12px; background: var(--accent); color: var(--accent-ink); font: inherit; font-size: .78rem; font-weight: 700; cursor: pointer; }
+.addr-go:hover { filter: brightness(1.1); }
+.addr-msg { margin: 0 0 6px; font-size: .82rem; color: var(--danger); }
+.addr-note { color: var(--ink-3); }
+.linklike { border: 0; background: none; padding: 0; margin-left: 6px; color: var(--accent); font: inherit; text-decoration: underline; cursor: pointer; }

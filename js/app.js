@@ -79,6 +79,69 @@
   var usingFallback = !Array.isArray(window.STEPS) || window.STEPS.length === 0;
   var STAGES = (Array.isArray(window.STAGES) && window.STAGES.length) ? window.STAGES : FALLBACK_STAGES;
   var ALL_STEPS = usingFallback ? FALLBACK_STEPS : window.STEPS;
+  var ORIG_STEPS = JSON.parse(JSON.stringify(ALL_STEPS));
+
+  /* ---------- 入力した URL の反映 ----------
+   * データは www.example.com / 203.0.113.80 / GET /login で書かれているので、
+   * 文字列を置き換えて「入力した URL の場合」を作る。
+   * 入力値は innerHTML に入る可能性があるため、使える文字を厳しく制限する（XSS 対策）。 */
+  var DEFAULT_URL = { host: "www.example.com", path: "/login", ip: "203.0.113.80" };
+  var urlInfo = { host: DEFAULT_URL.host, path: DEFAULT_URL.path, ip: DEFAULT_URL.ip };
+  function fakeIp(host) {
+    if (host === DEFAULT_URL.host) return DEFAULT_URL.ip;
+    var h = 0;
+    for (var i = 0; i < host.length; i++) h = (h * 31 + host.charCodeAt(i)) >>> 0;
+    var last = 10 + (h % 240);            // 203.0.113.10〜249（文書用の予約アドレス：RFC 5737）
+    return "203.0.113." + last;
+  }
+  function parseUserUrl(text) {
+    var t = String(text || "").trim();
+    if (!t) return { error: "URL を入力してください。" };
+    if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(t)) t = "https://" + t;
+    var u;
+    try { u = new URL(t); } catch (e) { return { error: "URL の形が正しくありません。例：https://www.example.com/login" }; }
+    var scheme = u.protocol.replace(":", "").toLowerCase();
+    if (scheme !== "http" && scheme !== "https") return { error: "このシミュレーターが扱えるのは http:// と https:// だけです。" };
+    var host = u.hostname.toLowerCase();
+    if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(host) || /^[0-9.]+$/.test(host) || host.length > 63) return { error: "ドメイン名（例：www.example.com）を入力してください。IP アドレス直打ちや長すぎる名前には対応していません。" };
+    var path = u.pathname || "/";
+    if (!/^[A-Za-z0-9\/_.~%-]{1,40}$/.test(path)) return { error: "パスに使える文字は英数字と / _ . ~ - % で、40 文字までです。" };
+    return { proto: scheme, host: host, path: path, port: u.port };
+  }
+  function applyUrlToSteps() {
+    var host = urlInfo.host, ip = urlInfo.ip, path = urlInfo.path;
+    var delta = host.length - DEFAULT_URL.host.length;  // DNS の QNAME 長の差
+    function tr(str, key) {
+      if (typeof str !== "string") return str;
+      var r = str.split(DEFAULT_URL.host).join(host).split(DEFAULT_URL.ip).join(ip);
+      if (path !== DEFAULT_URL.path) {
+        r = r.split("GET /login：ログインページをください").join("GET " + path + "：ページをください")
+             .split("GET /login").join("GET " + path)
+             .split("「/login のページ").join("「" + path + " のページ");
+      }
+      if (delta && key === "長さ") {
+        var m = /^(41|57) バイト$/.exec(r);
+        if (m) r = (Number(m[1]) + delta) + " バイト";
+      }
+      return r;
+    }
+    function walk(v, key) {
+      if (Array.isArray(v)) {
+        if (v.length === 2 && typeof v[0] === "string" && typeof v[1] === "string") return [v[0], tr(v[1], v[0])];
+        return v.map(function (x) { return walk(x); });
+      }
+      if (v && typeof v === "object") {
+        var o = {};
+        for (var k in v) o[k] = (k === "id" || k === "stage" || k === "from" || k === "to" || k === "terms" || k === "only") ? v[k] : walk(v[k], k);
+        return o;
+      }
+      return tr(v, key);
+    }
+    ALL_STEPS = walk(ORIG_STEPS);
+    var short = host.length > 22 ? host.slice(0, 21) + "…" : host;
+    NODE_INFO.server.sub = [short, ip];
+  }
+  function isCustomUrl() { return urlInfo.host !== DEFAULT_URL.host || urlInfo.path !== DEFAULT_URL.path; }
   var GLOSSARY = (window.GLOSSARY && typeof window.GLOSSARY === "object") ? window.GLOSSARY : (usingFallback ? FALLBACK_GLOSSARY : {});
   if (usingFallback && window.console) console.info("[packet-adventure] window.STEPS が見つからないため、ダミーデータで動作しています。");
 
@@ -574,14 +637,12 @@
     var https = state.proto === "https";
     bar.classList.toggle("is-http", !https);
     $("addrIcon").textContent = https ? "🔒" : "⚠";
-    var url = $("addrUrl");
-    url.textContent = "";
-    url.appendChild(el("span", { "class": https ? "scheme-https" : "scheme-http" }, https ? "https" : "http"));
-    url.appendChild(document.createTextNode("://"));
-    url.appendChild(el("span", { "class": "host" }, "www.example.com"));
-    url.appendChild(el("span", { "class": "path" }, "/login"));
+    var full = (https ? "https" : "http") + "://" + urlInfo.host + urlInfo.path;
+    var input = $("addrInput");
+    if (document.activeElement !== input) input.value = full;
     $("addrBadge").textContent = https ? "保護された通信" : "保護されていない通信";
-    bar.setAttribute("aria-label", "アドレスバー：" + (https ? "保護された通信 https://www.example.com/login" : "保護されていない通信 http://www.example.com/login"));
+    bar.setAttribute("aria-label", "アドレスバー：" + (https ? "保護された通信 " : "保護されていない通信 ") + full);
+    $("customNote").hidden = !isCustomUrl();
   }
 
   function renderStagebar() {
@@ -1077,6 +1138,26 @@
     $("tglLoss").addEventListener("click", function () { state.loss = !state.loss; rebuildSeq(); afterToggle(); });
 
     $("glossaryBtn").addEventListener("click", function () { openTerm(null); });
+    $("addressbar").addEventListener("submit", function (e) {
+      e.preventDefault();
+      var r = parseUserUrl($("addrInput").value);
+      var err = $("addrError");
+      if (r.error) { err.textContent = "⚠ " + r.error; err.hidden = false; return; }
+      err.hidden = true;
+      if (r.port) { err.textContent = "ℹ ポート番号の指定は無視して、標準の " + (r.proto === "https" ? "443" : "80") + " 番で表示します。"; err.hidden = false; }
+      urlInfo = { host: r.host, path: r.path, ip: fakeIp(r.host) };
+      state.proto = r.proto;
+      applyUrlToSteps();
+      state.seq = computeSeq();
+      buildDiagram();
+      $("addrInput").blur();
+      goTo(0, { user: true });
+    });
+    $("addrInput").addEventListener("focus", function () { if (state.playing) stopPlay(); this.select(); });
+    $("addrReset").addEventListener("click", function () {
+      $("addrInput").value = (state.proto === "https" ? "https" : "http") + "://" + DEFAULT_URL.host + DEFAULT_URL.path;
+      $("addressbar").requestSubmit ? $("addressbar").requestSubmit() : $("addressbar").dispatchEvent(new Event("submit", { cancelable: true }));
+    });
     $("faqBtn").addEventListener("click", openFaq);
     $("faqClose").addEventListener("click", closeFaq);
     var fdlg = $("faqDialog");

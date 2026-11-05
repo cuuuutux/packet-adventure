@@ -16,16 +16,19 @@
         <h1>パケットの大冒険</h1>
         <p class="subtitle">URL を入力してからログインするまで</p>
       </div>
-      <div class="addressbar" id="addressbar" role="img" aria-label="アドレスバー">
+      <form class="addressbar" id="addressbar" aria-label="アドレスバー" autocomplete="off">
         <span class="addr-icon" id="addrIcon" aria-hidden="true">🔒</span>
-        <span class="addr-url" id="addrUrl">https://www.example.com/login</span>
+        <input class="addr-url" id="addrInput" type="text" inputmode="url" spellcheck="false" value="https://www.example.com/login" aria-label="URL を入力して Enter（例：https://www.example.com/login）" title="好きな URL を入力して Enter">
         <span class="addr-badge" id="addrBadge">保護された通信</span>
-      </div>
+        <button type="submit" class="addr-go" aria-label="この URL でシミュレーションする">移動</button>
+      </form>
       <div class="header-btns">
         <button type="button" class="btn btn-ghost glossary-btn" id="faqBtn" aria-label="よくある質問を開く">❓ よくある質問</button>
         <button type="button" class="btn btn-ghost glossary-btn" id="glossaryBtn" aria-label="用語集を開く">📖 用語集</button>
       </div>
     </header>
+    <p class="addr-msg" id="addrError" role="status" hidden></p>
+    <p class="addr-msg addr-note" id="customNote" hidden>ℹ 入力した URL で表示中。本物のサーバーには接続せず、IP アドレス（203.0.113.x）・バイト数・番号は学習用の値です。<button type="button" class="linklike" id="addrReset">www.example.com に戻す</button></p>
 
     <nav class="stagebar" id="stagebar" aria-label="ステージ"></nav>
 
